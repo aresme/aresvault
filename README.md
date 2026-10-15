@@ -1,0 +1,72 @@
+# AresVault
+
+Local-only Android password manager with system-wide autofill. No cloud, no account,
+no `INTERNET` permission. Package `com.ares.vault`, minSdk 26, target/compile SDK 37.
+
+## Project layout
+
+| Module  | What it is |
+|---------|------------|
+| `:core` | Pure Kotlin/JVM: AES-GCM wrapper, Argon2 abstraction + calibration, vault header, key hierarchy (later: generator, PSL matcher, CSV/backup codecs). Fast JVM unit tests. |
+| `:data` | Android library: Argon2kt KDF, SQLCipher + Room database, Keystore biometric key, `VaultSession`/`VaultManager`. |
+| `:app`  | Compose UI, Hilt wiring, autofill service (Phase 4+). |
+
+## Requirements (Ubuntu)
+
+- JDK 17+ (tested with Temurin 25). Gradle comes from the wrapper (`./gradlew`).
+- Android SDK at `~/Android/Sdk` with platform `android-37` and build-tools.
+  `local.properties` must contain `sdk.dir=/home/<you>/Android/Sdk` (not committed).
+- `adb` on `PATH`.
+
+## Connect the phone (wireless debugging)
+
+On the phone: *Settings → System → Developer options → Wireless debugging → On*, then
+*Pair device with pairing code*.
+
+```bash
+adb pair 192.168.x.y:PAIR_PORT      # enter the 6-digit code shown on the phone
+adb connect 192.168.x.y:CONNECT_PORT  # the IP:port on the main Wireless debugging screen
+adb devices -l                      # should list the Infinix X6886
+```
+
+## Build, install, run
+
+```bash
+./gradlew assembleDebug                         # APK: app/build/outputs/apk/debug/app-debug.apk
+./gradlew :app:installDebug                     # build + install on the connected phone
+adb shell am start -n com.ares.vault/.MainActivity
+```
+
+## Logs
+
+All app logs use the single tag `AresVault` (secrets are never logged):
+
+```bash
+adb logcat -c && adb logcat -s AresVault
+# include biometric/keystore/autofill framework messages too:
+adb logcat AresVault:V BiometricPrompt:V AutofillManagerService:V AutofillSession:V '*:S'
+```
+
+(`adb logcat -s AresVault*` does not glob tags, which is why there is one tag.)
+
+## Tests
+
+```bash
+./gradlew :core:test                            # JVM unit tests (crypto, header, calibration)
+./gradlew :data:connectedDebugAndroidTest       # on-device: Argon2kt vs Bouncy Castle, SQLCipher, VaultManager
+./gradlew test connectedAndroidTest             # everything
+```
+
+Reports: `*/build/reports/tests/` and `*/build/reports/androidTests/connected/`.
+
+## Build guards
+
+`verifyNoNetworkPermission` runs after manifest merging and fails the build if any
+dependency adds `android.permission.INTERNET`.
+
+## Third-party data (from Phase 2)
+
+- EFF Large Wordlist — CC BY 3.0, Electronic Frontier Foundation.
+- Public Suffix List — MPL 2.0, Mozilla Foundation.
+
+See [SECURITY.md](SECURITY.md) for the key hierarchy and threat model.

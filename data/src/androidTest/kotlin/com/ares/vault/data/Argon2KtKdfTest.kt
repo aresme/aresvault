@@ -7,12 +7,15 @@ import com.ares.vault.core.crypto.KdfCalibrator
 import com.ares.vault.core.crypto.SecureBytes
 import com.ares.vault.data.crypto.Argon2KtKdf
 import com.google.common.truth.Truth.assertThat
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 /** Cross-checks the native Argon2kt output against Bouncy Castle on the real device. */
 @RunWith(AndroidJUnit4::class)
 class Argon2KtKdfTest {
+    @get:Rule val foreground = ForegroundRule()
+
     private val native = Argon2KtKdf()
     private val reference = BouncyCastleArgon2Kdf()
 

@@ -11,12 +11,15 @@ import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertThrows
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
 
 @RunWith(AndroidJUnit4::class)
 class VaultDatabaseTest {
+    @get:Rule val foreground = ForegroundRule()
+
     private val context = ApplicationProvider.getApplicationContext<android.content.Context>()
 
     @Before @After fun clean() = VaultDatabase.delete(context)

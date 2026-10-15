@@ -57,6 +57,11 @@ adb logcat AresVault:V BiometricPrompt:V AutofillManagerService:V AutofillSessio
 ./gradlew test connectedAndroidTest             # everything
 ```
 
+**Infinix XOS note:** XOS's power manager (`Usf_Hiber`) freezes app processes that have
+no visible window about a second after they start. Instrumented tests hold a small
+foreground activity (`ForegroundRule`) for this reason. Keep the phone unlocked while tests
+run (`adb shell svc power stayon usb` keeps the screen on while plugged in).
+
 Reports: `*/build/reports/tests/` and `*/build/reports/androidTests/connected/`.
 
 ## Build guards

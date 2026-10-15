@@ -12,12 +12,15 @@ import com.ares.vault.data.session.VaultSession
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.test.runTest
 import org.junit.After
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import kotlin.time.Duration.Companion.minutes
 
 @RunWith(AndroidJUnit4::class)
 class VaultManagerTest {
+    @get:Rule val foreground = ForegroundRule()
+
     private val context = ApplicationProvider.getApplicationContext<Context>()
     private val session = VaultSession()
     private val manager = VaultManager(

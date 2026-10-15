@@ -56,6 +56,28 @@ master password ──Argon2id(salt, params)──► KEK (32 B, never stored)
 - `SecretKeySpec` copies the key internally and cannot be wiped (JCA limitation).
 - WAL is disabled so SQLCipher never opens a second connection that would need the key again.
 
+## Session, auto-lock and lockout
+
+- **Auto-lock**: after the configured time in the background (default 2 min; options from
+  immediately to 1 h) and, by default, as soon as the screen turns off. Infinix XOS freezes
+  background processes, so a timer can fire late. Every resume (and, from Phase 4, every
+  autofill request) therefore re-checks elapsed *monotonic* time and locks if overdue.
+- Locking closes the DB, wipes keys, clears our clipboard entry, and replaces the whole
+  vault UI. Top-level screens live in their own navigation entries, so their ViewModels
+  (and any decrypted data they held) are destroyed.
+- **Lockout**: 5 free attempts, then 30 s, 1, 2, 5, 15, 30, 60 min. The remaining time is the
+  max of a same-boot monotonic estimate and a wall-clock estimate. Moving the clock forward
+  or rebooting doesn't shorten it, and moving it back restarts the delay. Re-verifying
+  the master password (change password, delete vault) is throttled the same way.
+- Generated passwords pass to "new entry" in memory (`PendingPassword`), never as navigation
+  arguments, which could be persisted in saved-instance state.
+
+## Permissions
+
+- `USE_BIOMETRIC` — fingerprint unlock.
+- `QUERY_ALL_PACKAGES` — read other apps' labels, icons and **signing certificates** for app
+  identity (Android 11+ hides them otherwise). No network permission of any kind.
+
 ## Threat model
 
 | Threat | Mitigation |
@@ -67,6 +89,7 @@ master password ──Argon2id(salt, params)──► KEK (32 B, never stored)
 | Screenshots, screen recording, recents thumbnails | `FLAG_SECURE` on all vault windows. |
 | Malicious app impersonating another app for autofill | Package name **and** signing certificate must match (Phase 4). |
 | Phishing site | Registrable-domain match from browser-reported `webDomain`, browsers allowlisted by package + cert (Phase 4). |
+| Another autofill service (e.g. Google Password Manager) reading the vault's own fields | Vault windows set `importantForAutofill=noExcludeDescendants` (found on-device: Google offered to save a vault password before this). |
 | Network exfiltration by a dependency | No `INTERNET` permission; build fails if one is merged in. |
 
 Out of scope: a compromised/rooted OS or malicious keyboard/accessibility service while

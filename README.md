@@ -66,7 +66,7 @@ Reports: `*/build/reports/tests/` and `*/build/reports/androidTests/connected/`.
 
 ## Build guards
 
-`verifyNoNetworkPermission` runs after manifest merging and fails the build if any
+`verify<Variant>NoNetworkPermission` runs before every assemble/install and fails the build if any
 dependency adds `android.permission.INTERNET`.
 
 ## Third-party data (from Phase 2)

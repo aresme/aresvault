@@ -14,8 +14,10 @@ class StrengthMeter {
     private val zxcvbn by lazy { Zxcvbn() }
 
     fun measure(password: CharArray, userInputs: List<String> = emptyList()): Result {
-        // CharBuffer.wrap avoids making a String; zxcvbn's internal copies are wiped below.
-        val strength = zxcvbn.measure(CharBuffer.wrap(password), userInputs)
+        // zxcvbn4j's wipe() zeroes the buffer it was given, so hand it a private copy
+        // (CharBuffer.wrap avoids a String) and never the caller's array.
+        val copy = password.copyOf()
+        val strength = zxcvbn.measure(CharBuffer.wrap(copy), userInputs)
         return try {
             Result(
                 score = strength.score,
@@ -25,6 +27,7 @@ class StrengthMeter {
             )
         } finally {
             strength.wipe()
+            copy.fill('\u0000')
         }
     }
 

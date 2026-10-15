@@ -52,8 +52,10 @@ class VaultSession @Inject constructor() {
     fun databaseOrNull(): VaultDatabase? = (_state.value as? VaultState.Unlocked)?.database
 
     private fun closeLocked() {
-        (_state.value as? VaultState.Unlocked)?.database?.close()
+        // Publish Locked first so observers switch away before the DB is closed under them.
+        val db = (_state.value as? VaultState.Unlocked)?.database
         _state.value = VaultState.Locked
+        db?.close()
         SecureBytes.wipe(dek, dbKey)
         dek = null
         dbKey = null

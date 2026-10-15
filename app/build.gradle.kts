@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
 }
@@ -33,25 +34,38 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
+    }
+
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
     }
 }
 
 // Security guard (spec §4.3): fail the build if any dependency merges in network access.
-val verifyNoNetworkPermission = tasks.register("verifyNoNetworkPermission") {
-    val manifests = fileTree(layout.buildDirectory.dir("intermediates/merged_manifest")) {
-        include("**/AndroidManifest.xml")
-    }
-    inputs.files(manifests)
-    doLast {
-        manifests.forEach { manifest ->
-            if (manifest.readText().contains("android.permission.INTERNET")) {
-                throw GradleException("INTERNET permission found in $manifest")
-            }
+abstract class VerifyNoNetworkPermission : DefaultTask() {
+    @get:InputFile
+    abstract val manifest: RegularFileProperty
+
+    @TaskAction
+    fun verify() {
+        val text = manifest.get().asFile.readText()
+        if ("android.permission.INTERNET" in text) {
+            throw GradleException("INTERNET permission found in merged manifest ${manifest.get().asFile}")
         }
     }
 }
-tasks.matching { it.name.matches(Regex("process.*MainManifest")) }.configureEach {
-    finalizedBy(verifyNoNetworkPermission)
+
+androidComponents {
+    onVariants { variant ->
+        val name = variant.name.replaceFirstChar { it.uppercase() }
+        val verify = tasks.register<VerifyNoNetworkPermission>("verify${name}NoNetworkPermission") {
+            manifest.set(variant.artifacts.get(com.android.build.api.artifact.SingleArtifact.MERGED_MANIFEST))
+        }
+        tasks.matching { it.name == "assemble$name" || it.name == "install$name" }.configureEach {
+            dependsOn(verify)
+        }
+    }
 }
 
 dependencies {
@@ -63,6 +77,8 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.process)
+    implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.biometric)
     implementation(libs.androidx.work.runtime)
 
@@ -79,6 +95,12 @@ dependencies {
     implementation(libs.androidx.hilt.navigation.compose)
 
     testImplementation(libs.junit)
+    testImplementation(libs.truth)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.compose.ui.test.junit4)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.ext.junit)
 }

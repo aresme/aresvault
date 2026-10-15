@@ -11,7 +11,9 @@ import com.ares.vault.core.generator.PasswordGenerator
 import com.ares.vault.core.generator.Preset
 import com.ares.vault.core.generator.RandomConfig
 import com.ares.vault.core.generator.StrengthLevel
+import com.ares.vault.data.session.SettingsRepository
 import com.ares.vault.data.settings.GeneratorSettingsRepository
+import com.ares.vault.ui.PendingPassword
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,6 +28,8 @@ import javax.inject.Inject
 class GeneratorViewModel @Inject constructor(
     private val repository: GeneratorSettingsRepository,
     private val clipboard: SecureClipboard,
+    private val settings: SettingsRepository,
+    private val pending: PendingPassword,
 ) : ViewModel() {
 
     data class UiState(
@@ -99,10 +103,23 @@ class GeneratorViewModel @Inject constructor(
     fun copy() {
         val pw = _ui.value.password
         if (pw.isEmpty()) return
+        viewModelScope.launch {
+            val seconds = settings.get()?.clipboardClearSeconds ?: SecureClipboard.DEFAULT_CLEAR_SECONDS
+            val chars = pw.toCharArray()
+            clipboard.copySecret("password", chars, seconds)
+            SecureBytes.wipe(chars)
+            message("Copied — clipboard clears in $seconds s")
+        }
+    }
+
+    /** Hands the current password to the add-entry screen (in memory). */
+    fun prepareNewEntry(): Boolean {
+        val pw = _ui.value.password
+        if (pw.isEmpty()) return false
         val chars = pw.toCharArray()
-        clipboard.copySecret("password", chars)
+        pending.put(chars)
         SecureBytes.wipe(chars)
-        message("Copied — clipboard clears in ${SecureClipboard.DEFAULT_CLEAR_SECONDS} s")
+        return true
     }
 
     fun consumeMessage() = _ui.update { it.copy(message = null) }

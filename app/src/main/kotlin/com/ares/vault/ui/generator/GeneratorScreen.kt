@@ -29,6 +29,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarHost
@@ -61,7 +62,7 @@ import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun GeneratorScreen(onBack: () -> Unit, vm: GeneratorViewModel = hiltViewModel()) {
+fun GeneratorScreen(onBack: () -> Unit, onSaveAsEntry: () -> Unit, vm: GeneratorViewModel = hiltViewModel()) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(ui.message) {
@@ -105,6 +106,12 @@ fun GeneratorScreen(onBack: () -> Unit, vm: GeneratorViewModel = hiltViewModel()
                 Spacer(Modifier.width(8.dp))
                 Text(if (isDefault) "Used by autofill" else "Use ${ui.selected.label} for autofill")
             }
+
+            OutlinedButton(
+                onClick = { if (vm.prepareNewEntry()) onSaveAsEntry() },
+                enabled = ui.password.isNotEmpty(),
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Save as new entry") }
 
             when (ui.selected) {
                 Preset.CUSTOM -> CustomOptions(ui.settings.custom, vm::updateCustom)

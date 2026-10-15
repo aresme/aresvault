@@ -8,6 +8,7 @@ import com.ares.vault.core.crypto.KdfCalibrator
 import com.ares.vault.core.crypto.SecureBytes
 import com.ares.vault.core.crypto.VaultHeader
 import com.ares.vault.core.crypto.VaultKeyHierarchy
+import com.ares.vault.core.policy.BruteForceGuard
 import com.ares.vault.data.AresLog
 import com.ares.vault.data.crypto.VaultHeaderStore
 import com.ares.vault.data.db.SettingsEntity
@@ -15,6 +16,9 @@ import com.ares.vault.data.db.VaultDatabase
 import com.ares.vault.data.keystore.BiometricKeyStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -28,6 +32,8 @@ sealed interface UnlockResult {
     /** Wrong password, or the header was tampered with (indistinguishable by design). */
     data object WrongPassword : UnlockResult
     data object NoVault : UnlockResult
+    /** Too many wrong attempts; try again after [remainingMillis]. */
+    data class LockedOut(val remainingMillis: Long) : UnlockResult
 }
 
 /**
@@ -41,13 +47,18 @@ class VaultManager @Inject constructor(
     private val headerStore: VaultHeaderStore,
     private val biometricKeys: BiometricKeyStore,
     private val session: VaultSession,
+    private val guard: BruteForceGuard,
 ) {
     private val keys = VaultKeyHierarchy(kdf)
     private val mutex = Mutex()
+    private val _exists = MutableStateFlow(headerStore.exists())
 
     val state: StateFlow<VaultState> get() = session.state
 
-    fun vaultExists(): Boolean = headerStore.exists()
+    /** Whether a vault exists; flips to false at the *start* of [destroy]. */
+    val exists: StateFlow<Boolean> = _exists.asStateFlow()
+
+    fun vaultExists(): Boolean = _exists.value
 
     fun hasBiometricSlot(): Boolean = headerStore.read()?.biometricSlot != null
 
@@ -67,6 +78,7 @@ class VaultManager @Inject constructor(
             val created = keys.create(password, calibration.params)
             headerStore.write(created.header)
             openDatabase(created.dek)
+            _exists.value = true
             session.databaseOrNull()?.settings()?.upsert(SettingsEntity())
             calibration
         }
@@ -75,14 +87,35 @@ class VaultManager @Inject constructor(
     suspend fun unlockWithPassword(password: CharArray): UnlockResult = mutex.withLock {
         withContext(Dispatchers.Default) {
             val header = headerStore.read() ?: return@withContext UnlockResult.NoVault
-            val dek = try {
-                keys.unlock(header, password)
-            } catch (_: AuthenticationFailedException) {
-                AresLog.w(COMPONENT, "Master password rejected")
-                return@withContext UnlockResult.WrongPassword
+            val dek = when (val r = verifyPassword(header, password)) {
+                is Verified.Ok -> r.dek
+                is Verified.Failed -> return@withContext r.result
             }
             openDatabase(dek)
             UnlockResult.Success
+        }
+    }
+
+    /** Remaining lockout, for the lock screen countdown. */
+    fun lockoutRemainingMillis(): Long = guard.remainingMillis()
+
+    fun failedAttempts(): Int = guard.failures()
+
+    private sealed interface Verified {
+        class Ok(val dek: ByteArray) : Verified
+        class Failed(val result: UnlockResult) : Verified
+    }
+
+    /** Password check with brute-force throttling (spec §4.3). */
+    private fun verifyPassword(header: VaultHeader, password: CharArray): Verified {
+        val remaining = guard.remainingMillis()
+        if (remaining > 0) return Verified.Failed(UnlockResult.LockedOut(remaining))
+        return try {
+            Verified.Ok(keys.unlock(header, password)).also { guard.reset() }
+        } catch (_: AuthenticationFailedException) {
+            val delay = guard.recordFailure()
+            AresLog.w(COMPONENT, "Master password rejected (attempt ${guard.failures()})")
+            Verified.Failed(if (delay > 0) UnlockResult.LockedOut(delay) else UnlockResult.WrongPassword)
         }
     }
 
@@ -109,7 +142,25 @@ class VaultManager @Inject constructor(
                 return@withContext UnlockResult.WrongPassword
             }
             openDatabase(dek)
+            guard.reset()
             UnlockResult.Success
+        }
+    }
+
+    /**
+     * Re-checks the master password without changing state (used before sensitive actions
+     * like plaintext export or destroying the vault). Throttled like an unlock.
+     */
+    suspend fun verifyMasterPassword(password: CharArray): UnlockResult = mutex.withLock {
+        withContext(Dispatchers.Default) {
+            val header = headerStore.read() ?: return@withContext UnlockResult.NoVault
+            when (val r = verifyPassword(header, password)) {
+                is Verified.Ok -> {
+                    SecureBytes.wipe(r.dek)
+                    UnlockResult.Success
+                }
+                is Verified.Failed -> r.result
+            }
         }
     }
 
@@ -143,10 +194,9 @@ class VaultManager @Inject constructor(
     suspend fun changePassword(current: CharArray, new: CharArray): UnlockResult = mutex.withLock {
         withContext(Dispatchers.Default) {
             val header = headerStore.read() ?: return@withContext UnlockResult.NoVault
-            val dek = try {
-                keys.unlock(header, current)
-            } catch (_: AuthenticationFailedException) {
-                return@withContext UnlockResult.WrongPassword
+            val dek = when (val r = verifyPassword(header, current)) {
+                is Verified.Ok -> r.dek
+                is Verified.Failed -> return@withContext r.result
             }
             try {
                 val params = KdfCalibrator(kdf).calibrate().params
@@ -161,13 +211,18 @@ class VaultManager @Inject constructor(
 
     fun lock() = session.lock()
 
-    /** Irreversibly deletes the vault (header, database, biometric key). */
+    /**
+     * Irreversibly deletes the vault (header, database, biometric key). Non-cancellable:
+     * locking tears down the calling UI, which must not abort a half-finished deletion.
+     */
     suspend fun destroy() = mutex.withLock {
-        withContext(Dispatchers.IO) {
+        withContext(Dispatchers.IO + NonCancellable) {
+            _exists.value = false
             session.lock()
             headerStore.delete()
             VaultDatabase.delete(context)
             biometricKeys.deleteKey()
+            guard.reset()
             AresLog.w(COMPONENT, "Vault destroyed")
         }
     }

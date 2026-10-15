@@ -4,6 +4,15 @@
 
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
 
+    <!--
+        Needed to read other apps' labels, icons and signing certificates (spec §4.4: app
+        identity = package + signing cert). Android 11+ hides other packages without it.
+        Password managers are an accepted use of this permission.
+    -->
+    <uses-permission
+        android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
+
     <!-- No INTERNET permission: the vault is local-only. Enforced by verifyNoNetworkPermission. -->
 
     <application

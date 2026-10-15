@@ -20,6 +20,12 @@ class StrengthMeterTest {
         }
     }
 
+    @Test fun callerArrayIsNotModified() {
+        val pw = "correct-horse-battery".toCharArray()
+        meter.measure(pw)
+        assertThat(String(pw)).isEqualTo("correct-horse-battery")
+    }
+
     @Test fun userInputsArePenalised() {
         val pw = "kiplangat-vault".toCharArray()
         val without = meter.measure(pw).guessesLog10

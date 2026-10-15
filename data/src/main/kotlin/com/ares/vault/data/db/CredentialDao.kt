@@ -12,6 +12,9 @@ interface CredentialDao {
     @Query("SELECT * FROM credentials ORDER BY favorite DESC, title COLLATE NOCASE ASC")
     fun observeAll(): Flow<List<CredentialEntity>>
 
+    @Query("SELECT * FROM credentials")
+    suspend fun getAll(): List<CredentialEntity>
+
     @Query("SELECT * FROM credentials WHERE id = :id")
     fun observe(id: String): Flow<CredentialEntity?>
 

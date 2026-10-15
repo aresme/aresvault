@@ -1,5 +1,6 @@
 package com.ares.vault.data.db
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -62,6 +63,9 @@ data class SettingsEntity(
     val biometricEnabled: Boolean = false,
     /** Spec §6.3 locked-state account labels; see SECURITY.md. */
     val showAccountsWhenLocked: Boolean = true,
+    /** Spec §1: picking an account asks for the fingerprint even when the vault is unlocked. */
+    @ColumnInfo(defaultValue = "1")
+    val requireAuthToFill: Boolean = true,
 ) {
     companion object {
         const val SINGLETON_ID = 0

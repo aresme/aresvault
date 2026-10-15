@@ -72,6 +72,35 @@ master password ──Argon2id(salt, params)──► KEK (32 B, never stored)
 - Generated passwords pass to "new entry" in memory (`PendingPassword`), never as navigation
   arguments, which could be persisted in saved-instance state.
 
+## Autofill (Phase 4)
+
+- **Identity.** Native apps are identified by package name **and** signing certificate
+  (SHA-256, read via `PackageManager`). An entry is offered only if both match. A verified
+  APK v3 key-rotation lineage also counts. Same package with a different signer, or an entry
+  with no pinned certificate, → nothing is offered and a warning is logged.
+- **Websites** are trusted only when the requester is an allowlisted browser *and* carries
+  that browser's real signing certificate (`core/.../browsers.json`, from Google's
+  privileged-apps list plus on-device-verified Tor Browser and Phoenix). A `webDomain`
+  reported by any other app (e.g. a WebView claiming to be bank.com) is ignored, and the
+  request is treated as coming from that app (verified on device).
+- **Matching** is on the registrable domain (eTLD+1) from the bundled Public Suffix List
+  (ICANN + private sections, so `alice.github.io` ≠ `bob.github.io`). Never by title or field text.
+- **No secrets in responses by default.** Every account suggestion needs authentication via
+  `AutofillAuthActivity`: unlock (fingerprint CryptoObject or master password) when locked,
+  or a presence check (fingerprint / screen lock) when unlocked ("Ask before every fill",
+  default on). Only with that setting off and the vault unlocked do datasets carry values.
+- The auth activity re-derives the requester's identity from the **system-provided**
+  `EXTRA_ASSIST_STRUCTURE` and re-checks the match before returning a dataset.
+- Only visible, focusable fields are filled. OTP, search and payment-card fields are skipped.
+  AresVault's own windows are excluded from autofill.
+- **Locked-state index**: usernames, titles and identities (no passwords), encrypted with a
+  non-auth Keystore AES-GCM key in `noBackupFilesDir`. It's deleted when "Show account names
+  when locked" is turned off or the vault is deleted.
+- Every fill request first runs the auto-lock deadline check, because XOS can freeze the
+  timer.
+- Instrumented tests run against a separate `com.ares.vault.staging` package and restore the
+  user's autofill service afterwards.
+
 ## Permissions
 
 - `USE_BIOMETRIC` — fingerprint unlock.

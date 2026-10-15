@@ -19,7 +19,16 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // Instrumented tests run against "staging" (com.ares.vault.staging) so they can create and
+    // destroy vaults without touching the real AresVault install.
+    testBuildType = "staging"
+
     buildTypes {
+        create("staging") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".staging"
+            matchingFallbacks += listOf("debug")
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
@@ -39,6 +48,12 @@ android {
 
     testOptions {
         unitTests.isIncludeAndroidResources = true
+    }
+
+    // Debug-only autofill test harness, shared by debug and staging.
+    sourceSets {
+        getByName("debug") { kotlin.directories.add("src/testHarness/kotlin") }
+        getByName("staging") { kotlin.directories.add("src/testHarness/kotlin") }
     }
 }
 
@@ -80,6 +95,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.process)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.biometric)
+    implementation(libs.androidx.autofill)
     implementation(libs.androidx.work.runtime)
 
     implementation(platform(libs.androidx.compose.bom))
@@ -101,6 +117,9 @@ dependencies {
     testImplementation(platform(libs.androidx.compose.bom))
     testImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+    "stagingImplementation"(libs.androidx.compose.ui.test.manifest)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.uiautomator)
+    androidTestImplementation(libs.truth)
 }

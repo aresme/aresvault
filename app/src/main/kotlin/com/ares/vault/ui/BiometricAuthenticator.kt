@@ -1,6 +1,8 @@
 package com.ares.vault.ui
 
+import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
+import androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
@@ -17,6 +19,7 @@ object BiometricAuthenticator {
         class Success(val cipher: Cipher) : Result
         class Error(val message: String) : Result
         data object Cancelled : Result
+        data object Confirmed : Result
     }
 
     suspend fun authenticate(
@@ -55,4 +58,39 @@ object BiometricAuthenticator {
         prompt.authenticate(info, BiometricPrompt.CryptoObject(cipher))
         cont.invokeOnCancellation { prompt.cancelAuthentication() }
     }
+
+    /** Whether [confirm] can run (fingerprint or screen lock is set up). */
+    fun canConfirm(activity: FragmentActivity): Boolean =
+        BiometricManager.from(activity).canAuthenticate(BIOMETRIC_STRONG or DEVICE_CREDENTIAL) == BiometricManager.BIOMETRIC_SUCCESS
+
+    /**
+     * User-presence check without a key (vault already unlocked): fingerprint, falling back to
+     * the phone's PIN/pattern. Used for "ask before every fill".
+     */
+    suspend fun confirm(activity: FragmentActivity, title: String, subtitle: String?): Result =
+        suspendCancellableCoroutine { cont ->
+            val prompt = BiometricPrompt(
+                activity,
+                ContextCompat.getMainExecutor(activity),
+                object : BiometricPrompt.AuthenticationCallback() {
+                    override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                        if (cont.isActive) cont.resume(Result.Confirmed)
+                    }
+
+                    override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                        if (!cont.isActive) return
+                        val cancelled = errorCode == BiometricPrompt.ERROR_USER_CANCELED ||
+                            errorCode == BiometricPrompt.ERROR_NEGATIVE_BUTTON || errorCode == BiometricPrompt.ERROR_CANCELED
+                        cont.resume(if (cancelled) Result.Cancelled else Result.Error(errString.toString()))
+                    }
+                },
+            )
+            val info = BiometricPrompt.PromptInfo.Builder()
+                .setTitle(title)
+                .apply { subtitle?.let { setSubtitle(it) } }
+                .setAllowedAuthenticators(BIOMETRIC_STRONG or DEVICE_CREDENTIAL)
+                .build()
+            prompt.authenticate(info)
+            cont.invokeOnCancellation { prompt.cancelAuthentication() }
+        }
 }

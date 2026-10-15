@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.ares.vault.core.policy.BruteForceGuard
+import com.ares.vault.data.autofill.AutofillIndexStore
 import com.ares.vault.data.crypto.Argon2KtKdf
 import com.ares.vault.data.session.AndroidVaultClock
 import com.ares.vault.data.session.PrefsLockoutStore
@@ -29,6 +30,7 @@ class VaultManagerTest {
     private val manager = VaultManager(
         context, Argon2KtKdf(), VaultHeaderStore(context), BiometricKeyStore(), session,
         BruteForceGuard(PrefsLockoutStore(context), AndroidVaultClock(context)),
+        AutofillIndexStore(context),
     )
 
     @After fun clean() = runTest { manager.destroy() }

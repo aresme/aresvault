@@ -37,6 +37,22 @@ adb devices -l                      # should list the Infinix X6886
 adb shell am start -n com.ares.vault/.MainActivity
 ```
 
+## Autofill setup
+
+1. AresVault → Settings → **Set AresVault as autofill service** (or Android Settings →
+   Passwords & accounts → Autofill service / "Preferred service" on XOS → AresVault).
+2. Chrome: ⋮ → Settings → **Autofill services → Autofill using another service**, then restart
+   Chrome. Do the same in Brave and Edge. Firefox works natively.
+
+Debug test forms (debug builds only):
+
+```bash
+adb shell am start -n com.ares.vault/com.ares.vault.debug.AutofillTestActivity --es mode login   # or signup | web
+```
+
+`web` loads a page claiming to be example.com inside a non-browser app. AresVault must ignore
+that domain (logcat: "Ignoring webDomain reported by non-browser app").
+
 ## Logs
 
 All app logs use the single tag `AresVault` (secrets are never logged):
@@ -54,6 +70,7 @@ adb logcat AresVault:V BiometricPrompt:V AutofillManagerService:V AutofillSessio
 ```bash
 ./gradlew :core:test                            # JVM unit tests (crypto, header, calibration)
 ./gradlew :data:connectedDebugAndroidTest       # on-device: Argon2kt vs Bouncy Castle, SQLCipher, VaultManager
+./gradlew :app:connectedStagingAndroidTest      # end-to-end autofill (installs com.ares.vault.staging; phone unlocked)
 ./gradlew test connectedAndroidTest             # everything
 ```
 
@@ -72,6 +89,7 @@ dependency adds `android.permission.INTERNET`.
 ## Third-party data (from Phase 2)
 
 - EFF Large Wordlist — CC BY 3.0, Electronic Frontier Foundation.
-- Public Suffix List — MPL 2.0, Mozilla Foundation.
+- Public Suffix List — MPL 2.0, Mozilla Foundation (bundled in `core/src/main/resources`).
+- Browser signing certificates — Google privileged-apps list (gstatic.com), fetched 2026-10-15.
 
 See [SECURITY.md](SECURITY.md) for the key hierarchy and threat model.

@@ -46,6 +46,7 @@ import com.ares.vault.BuildConfig
 import com.ares.vault.core.generator.Preset
 import com.ares.vault.data.session.AutoLockController
 import com.ares.vault.ui.BiometricEnroller
+import com.ares.vault.ui.components.AutofillSetupCard
 import com.ares.vault.ui.components.PasswordField
 import kotlinx.coroutines.launch
 
@@ -102,7 +103,12 @@ fun SettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = hiltViewModel()) 
                 "Lists your usernames in autofill before you unlock. Filling still needs your fingerprint.",
                 s.showAccountsWhenLocked,
             ) { v -> vm.update { it.copy(showAccountsWhenLocked = v) } }
-            ClickItem("Autofill service", "Set up in Phase 4", enabled = false) {}
+            SwitchItem(
+                "Ask before every fill",
+                "Confirm with fingerprint (or screen lock) each time a password is filled",
+                s.requireAuthToFill,
+            ) { v -> vm.update { it.copy(requireAuthToFill = v) } }
+            AutofillSetupCard(Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
 
             Section("Backup")
             ClickItem("Export / import", "Coming in Phase 6", enabled = false) {}

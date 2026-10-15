@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- Debug-only autofill test forms (spec §7 Phase 4). Not in release builds. -->
+        <activity
+            android:name="com.ares.vault.debug.AutofillTestActivity"
+            android:exported="true"
+            android:label="AresVault autofill test"
+            android:windowSoftInputMode="adjustResize" />
+    </application>
+</manifest>

@@ -47,8 +47,8 @@ class BiometricEnroller @Inject constructor(
                 settings.update { it.copy(biometricEnabled = true) }
                 Result.Enabled
             }
-            BiometricAuthenticator.Result.Cancelled -> Result.Cancelled
             is BiometricAuthenticator.Result.Error -> Result.Failed(r.message)
+            else -> Result.Cancelled
         }
     }
 

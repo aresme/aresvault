@@ -14,6 +14,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Fingerprint
+import androidx.compose.material.icons.filled.Password
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.Button
@@ -38,6 +39,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ares.vault.core.policy.MasterPasswordPolicy
 import com.ares.vault.ui.BiometricEnroller
+import com.ares.vault.ui.components.AutofillSetupCard
 import com.ares.vault.ui.components.PasswordField
 import com.ares.vault.ui.components.ScoreBar
 import com.ares.vault.ui.components.scoreLabel
@@ -56,6 +58,7 @@ fun OnboardingScreen(vm: OnboardingViewModel = hiltViewModel()) {
                 OnboardingViewModel.Step.PASSWORD -> CreatePassword(ui, vm)
                 OnboardingViewModel.Step.CREATING -> Creating()
                 OnboardingViewModel.Step.FINGERPRINT -> Fingerprint(ui, vm)
+                OnboardingViewModel.Step.AUTOFILL -> Autofill(vm)
             }
         }
     }
@@ -155,7 +158,20 @@ private fun Fingerprint(ui: OnboardingViewModel.UiState, vm: OnboardingViewModel
             Text("Strong biometric unlock isn't available on this device.", color = MaterialTheme.colorScheme.error)
     }
     ui.fingerprintMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-    TextButton(onClick = vm::finish, modifier = Modifier.fillMaxWidth()) { Text("Skip for now") }
+    TextButton(onClick = vm::toAutofill, modifier = Modifier.fillMaxWidth()) { Text("Skip for now") }
+}
+
+@Composable
+private fun Autofill(vm: OnboardingViewModel) {
+    Spacer(Modifier.height(32.dp))
+    Icon(Icons.Filled.Password, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(72.dp))
+    Text("Fill passwords everywhere", style = MaterialTheme.typography.headlineSmall)
+    Text(
+        "AresVault can suggest your logins and strong new passwords in apps and browsers, " +
+            "like Google Password Manager — but everything stays on this phone.",
+    )
+    AutofillSetupCard()
+    Button(onClick = vm::finish, modifier = Modifier.fillMaxWidth()) { Text("Done") }
 }
 
 @Composable

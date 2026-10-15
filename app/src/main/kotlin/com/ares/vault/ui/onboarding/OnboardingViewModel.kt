@@ -28,7 +28,7 @@ class OnboardingViewModel @Inject constructor(
     private val enroller: BiometricEnroller,
 ) : ViewModel() {
 
-    enum class Step { WELCOME, PASSWORD, CREATING, FINGERPRINT }
+    enum class Step { WELCOME, PASSWORD, CREATING, FINGERPRINT, AUTOFILL }
 
     data class UiState(
         val step: Step = Step.WELCOME,
@@ -105,11 +105,13 @@ class OnboardingViewModel @Inject constructor(
 
     suspend fun enableFingerprint(activity: FragmentActivity) {
         when (val r = enroller.enable(activity)) {
-            BiometricEnroller.Result.Enabled -> finish()
+            BiometricEnroller.Result.Enabled -> toAutofill()
             BiometricEnroller.Result.Cancelled -> Unit
             is BiometricEnroller.Result.Failed -> _ui.update { it.copy(fingerprintMessage = r.message) }
         }
     }
+
+    fun toAutofill() = _ui.update { it.copy(step = Step.AUTOFILL) }
 
     fun finish() = prefs.setOnboardingDone(true)
 }

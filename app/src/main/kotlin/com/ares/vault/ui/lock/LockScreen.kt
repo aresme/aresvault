@@ -48,7 +48,7 @@ fun LockScreen(vm: LockViewModel = hiltViewModel()) {
             when (val r = BiometricAuthenticator.authenticate(activity, cipher, "Unlock AresVault")) {
                 is BiometricAuthenticator.Result.Success -> vm.unlockWithBiometric(r.cipher)
                 is BiometricAuthenticator.Result.Error -> vm.biometricError(r.message)
-                BiometricAuthenticator.Result.Cancelled -> Unit
+                else -> Unit
             }
         }
     }

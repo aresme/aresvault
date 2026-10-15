@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Chrome (with "Autofill using another service"), Firefox, Brave, Edge and other modern
+    browsers use the Autofill Framework natively. Compatibility mode (accessibility-based,
+    slower) is only declared for browsers that don't. maxLongVersionCode is set high so it
+    keeps working across updates; drop an entry once that browser gains native support.
+-->
+<autofill-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:settingsActivity="com.ares.vault.MainActivity"
+    android:supportsInlineSuggestions="true">
+    <compatibility-package android:name="com.transsion.phoenix" android:maxLongVersionCode="10000000000" />
+    <compatibility-package android:name="com.sec.android.app.sbrowser" android:maxLongVersionCode="10000000000" />
+    <compatibility-package android:name="com.sec.android.app.sbrowser.beta" android:maxLongVersionCode="10000000000" />
+    <compatibility-package android:name="com.opera.browser" android:maxLongVersionCode="10000000000" />
+    <compatibility-package android:name="com.opera.browser.beta" android:maxLongVersionCode="10000000000" />
+    <compatibility-package android:name="com.opera.mini.native" android:maxLongVersionCode="10000000000" />
+    <compatibility-package android:name="com.opera.gx" android:maxLongVersionCode="10000000000" />
+</autofill-service>

@@ -10,6 +10,7 @@ import com.ares.vault.core.crypto.VaultHeader
 import com.ares.vault.core.crypto.VaultKeyHierarchy
 import com.ares.vault.core.policy.BruteForceGuard
 import com.ares.vault.data.AresLog
+import com.ares.vault.data.autofill.AutofillIndexStore
 import com.ares.vault.data.crypto.VaultHeaderStore
 import com.ares.vault.data.db.SettingsEntity
 import com.ares.vault.data.db.VaultDatabase
@@ -48,6 +49,7 @@ class VaultManager @Inject constructor(
     private val biometricKeys: BiometricKeyStore,
     private val session: VaultSession,
     private val guard: BruteForceGuard,
+    private val indexStore: AutofillIndexStore,
 ) {
     private val keys = VaultKeyHierarchy(kdf)
     private val mutex = Mutex()
@@ -220,6 +222,7 @@ class VaultManager @Inject constructor(
             _exists.value = false
             session.lock()
             headerStore.delete()
+            indexStore.delete()
             VaultDatabase.delete(context)
             biometricKeys.deleteKey()
             guard.reset()

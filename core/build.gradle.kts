@@ -20,6 +20,7 @@ kotlin {
 
 dependencies {
     implementation(libs.kotlinx.serialization.json)
+    api(libs.zxcvbn)
 
     // Bouncy Castle Argon2 is used only as a JVM-side reference KDF in tests
     // (Argon2kt is a native library and cannot run on the JVM).

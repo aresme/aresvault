@@ -36,7 +36,7 @@ import com.ares.vault.ui.BiometricAuthenticator
 import kotlinx.coroutines.launch
 
 @Composable
-fun DevCheckScreen(vm: DevCheckViewModel = hiltViewModel()) {
+fun DevCheckScreen(onOpenGenerator: () -> Unit, vm: DevCheckViewModel = hiltViewModel()) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     val activity = LocalContext.current as FragmentActivity
     val scope = rememberCoroutineScope()
@@ -59,6 +59,7 @@ fun DevCheckScreen(vm: DevCheckViewModel = hiltViewModel()) {
                 style = MaterialTheme.typography.bodyMedium,
             )
             if (ui.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+            Button(onClick = onOpenGenerator) { Text("Password generator") }
 
             if (!ui.unlocked) {
                 OutlinedTextField(

@@ -41,7 +41,8 @@ class PublicSuffixList private constructor(
     }
 
     companion object {
-        private const val RESOURCE = "public_suffix_list.dat"
+        // Absolute path: R8 moves classes to other packages, which breaks relative lookups.
+        private const val RESOURCE = "/com/ares/vault/core/autofill/public_suffix_list.dat"
 
         val default: PublicSuffixList by lazy {
             val stream = checkNotNull(PublicSuffixList::class.java.getResourceAsStream(RESOURCE)) { "PSL missing" }

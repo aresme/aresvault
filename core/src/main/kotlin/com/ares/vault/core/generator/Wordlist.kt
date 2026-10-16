@@ -6,7 +6,8 @@ package com.ares.vault.core.generator
  */
 object EffWordlist {
     const val SIZE = 7776
-    private const val RESOURCE = "eff_large_wordlist.txt"
+    // Absolute path: R8 moves classes to other packages, which breaks relative lookups.
+    private const val RESOURCE = "/com/ares/vault/core/generator/eff_large_wordlist.txt"
 
     val words: List<String> by lazy {
         val stream = checkNotNull(EffWordlist::class.java.getResourceAsStream(RESOURCE)) {

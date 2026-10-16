@@ -45,6 +45,15 @@ class VaultSession @Inject constructor() {
         AresLog.i(COMPONENT, "Vault locked")
     }
 
+    /** After a database re-key: swap in the new keys and wipe the old ones. */
+    @Synchronized
+    fun replaceKeys(newDek: ByteArray, newDbKey: ByteArray) {
+        check(isUnlocked) { "Vault must be unlocked" }
+        SecureBytes.wipe(dek, dbKey)
+        dek = newDek
+        dbKey = newDbKey
+    }
+
     /** Runs [block] with the live DEK (do not keep a reference). Null if locked. */
     @Synchronized
     fun <T> withDek(block: (ByteArray) -> T): T? = dek?.let(block)

@@ -23,7 +23,22 @@ android {
     // destroy vaults without touching the real AresVault install.
     testBuildType = "staging"
 
+    // Anti-phishing check (spec §8): `./gradlew :app:installDebug -PimpostorSigning` signs the
+    // debug app with a *different* key (scripts/make-impostor-keystore.sh). Same package,
+    // different certificate → AresVault must not offer logins saved for the genuine app.
+    signingConfigs {
+        create("impostor") {
+            storeFile = rootProject.file("impostor-debug.keystore")
+            storePassword = "impostor"
+            keyAlias = "impostor"
+            keyPassword = "impostor"
+        }
+    }
+
     buildTypes {
+        getByName("debug") {
+            if (project.hasProperty("impostorSigning")) signingConfig = signingConfigs.getByName("impostor")
+        }
         create("staging") {
             initWith(getByName("debug"))
             applicationIdSuffix = ".staging"

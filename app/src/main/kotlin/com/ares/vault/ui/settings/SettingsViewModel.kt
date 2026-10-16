@@ -97,6 +97,27 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    /** Re-keys the database; fingerprint unlock is dropped and must be re-enabled. */
+    suspend fun rotateKey(password: String): String? {
+        val chars = password.toCharArray()
+        val r = try {
+            manager.rotateDatabaseKey(chars)
+        } finally {
+            SecureBytes.wipe(chars)
+        }
+        return when (r) {
+            UnlockResult.Success -> {
+                biometricEnabled.value = manager.hasBiometricSlot()
+                settingsRepo.update { it.copy(biometricEnabled = false) }
+                message.value = "Database key rotated" + if (enroller.wanted()) " — re-enable fingerprint unlock" else ""
+                null
+            }
+            UnlockResult.WrongPassword -> "Wrong master password"
+            is UnlockResult.LockedOut -> "Too many wrong attempts. Wait ${formatCountdown(r.remainingMillis)}"
+            UnlockResult.NoVault -> "No vault"
+        }
+    }
+
     /** Verifies the master password, then irreversibly deletes the vault. */
     suspend fun destroyVault(password: String): String? {
         val chars = password.toCharArray()

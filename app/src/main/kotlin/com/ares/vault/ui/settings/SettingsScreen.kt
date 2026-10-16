@@ -48,11 +48,12 @@ import com.ares.vault.data.session.AutoLockController
 import com.ares.vault.ui.BiometricEnroller
 import com.ares.vault.ui.components.AutofillSetupCard
 import com.ares.vault.ui.components.PasswordField
+import com.ares.vault.ui.components.XosHelpCard
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = hiltViewModel()) {
+fun SettingsScreen(onBack: () -> Unit, onBackup: () -> Unit, vm: SettingsViewModel = hiltViewModel()) {
     val settings by vm.settings.collectAsStateWithLifecycle()
     val generator by vm.generator.collectAsStateWithLifecycle()
     val biometric by vm.biometricEnabled.collectAsStateWithLifecycle()
@@ -93,6 +94,9 @@ fun SettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = hiltViewModel()) 
             }
             ClickItem("Clear clipboard after", "${s.clipboardClearSeconds} seconds") { dialog = Dialog.CLIPBOARD }
             ClickItem("Change master password", "Re-wraps the vault key; your data isn't re-encrypted") { dialog = Dialog.CHANGE_PASSWORD }
+            ClickItem("Rotate database key", "Re-encrypts the vault with a brand-new key (do this after changing a leaked master password)") {
+                dialog = Dialog.ROTATE
+            }
 
             Section("Password generator")
             ClickItem("Default strength", "${generator.defaultPreset.label} — used by autofill “Generate”") { dialog = Dialog.PRESET }
@@ -109,9 +113,10 @@ fun SettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = hiltViewModel()) 
                 s.requireAuthToFill,
             ) { v -> vm.update { it.copy(requireAuthToFill = v) } }
             AutofillSetupCard(Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+            XosHelpCard(Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
 
             Section("Backup")
-            ClickItem("Export / import", "Coming in Phase 6", enabled = false) {}
+            ClickItem("Backup & import", "Encrypted backup, restore, import from Google Password Manager") { onBackup() }
 
             Section("Danger zone")
             ClickItem("Delete vault", "Permanently erase all entries from this phone", destructive = true) { dialog = Dialog.DESTROY }
@@ -149,13 +154,14 @@ fun SettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = hiltViewModel()) 
                 onDismiss = { dialog = null },
             ) { vm.setDefaultPreset(it) }
             Dialog.CHANGE_PASSWORD -> ChangePasswordDialog(vm, onDismiss = { dialog = null })
+            Dialog.ROTATE -> RotateKeyDialog(vm, onDismiss = { dialog = null })
             Dialog.DESTROY -> DestroyDialog(vm, onDismiss = { dialog = null })
             null -> Unit
         }
     }
 }
 
-private enum class Dialog { TIMEOUT, CLIPBOARD, PRESET, CHANGE_PASSWORD, DESTROY }
+private enum class Dialog { TIMEOUT, CLIPBOARD, PRESET, CHANGE_PASSWORD, ROTATE, DESTROY }
 
 private fun timeoutLabel(seconds: Int): String = when {
     seconds == 0 -> "immediately"
@@ -266,6 +272,40 @@ private fun ChangePasswordDialog(vm: SettingsViewModel, onDismiss: () -> Unit) {
                     if (error == null) onDismiss()
                 }
             }) { Text("Change") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text("Cancel") } },
+    )
+}
+
+@Composable
+private fun RotateKeyDialog(vm: SettingsViewModel, onDismiss: () -> Unit) {
+    var password by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    AlertDialog(
+        onDismissRequest = { if (!busy) onDismiss() },
+        title = { Text("Rotate database key?") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "AresVault re-encrypts the vault with a new random key, so old copies of the vault key " +
+                        "become useless. Fingerprint unlock must be re-enabled afterwards.",
+                )
+                PasswordField(password, { password = it; error = null }, "Master password")
+                if (busy) Text("Re-encrypting…")
+                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = !busy && password.isNotEmpty(), onClick = {
+                busy = true
+                scope.launch {
+                    error = vm.rotateKey(password)
+                    busy = false
+                    if (error == null) onDismiss()
+                }
+            }) { Text("Rotate key") }
         },
         dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text("Cancel") } },
     )

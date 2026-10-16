@@ -1,11 +1,13 @@
 package com.ares.vault.data.session
 
 import android.content.Context
+import com.ares.vault.core.crypto.AesGcm
 import com.ares.vault.core.crypto.Argon2Params
 import com.ares.vault.core.crypto.AuthenticationFailedException
 import com.ares.vault.core.crypto.Kdf
 import com.ares.vault.core.crypto.KdfCalibrator
 import com.ares.vault.core.crypto.SecureBytes
+import com.ares.vault.core.crypto.SqlCipherKey
 import com.ares.vault.core.crypto.VaultHeader
 import com.ares.vault.core.crypto.VaultKeyHierarchy
 import com.ares.vault.core.policy.BruteForceGuard
@@ -93,7 +95,64 @@ class VaultManager @Inject constructor(
                 is Verified.Ok -> r.dek
                 is Verified.Failed -> return@withContext r.result
             }
+            openDatabaseRecovering(dek, password)
+            UnlockResult.Success
+        }
+    }
+
+    /**
+     * Opens the DB; if that fails and an interrupted key rotation left a pending header,
+     * finishes the rotation with it (the DB was already re-keyed to the pending DEK).
+     */
+    private fun openDatabaseRecovering(dek: ByteArray, password: CharArray) {
+        val pending = headerStore.readPending()
+        if (pending == null) {
             openDatabase(dek)
+            return
+        }
+        try {
+            openDatabase(dek)
+            headerStore.deletePending() // crashed before the re-key: old key is still right
+            AresLog.w(COMPONENT, "Discarded unfinished key rotation (database not yet re-keyed)")
+        } catch (e: Exception) {
+            val newDek = try {
+                keys.unlock(pending, password)
+            } catch (_: AuthenticationFailedException) {
+                throw e
+            }
+            openDatabase(newDek)
+            headerStore.write(pending)
+            headerStore.deletePending()
+            biometricKeys.deleteKey()
+            AresLog.w(COMPONENT, "Completed interrupted database key rotation")
+        }
+    }
+
+    /**
+     * Spec follow-up (SECURITY.md): generates a new DEK and re-keys the SQLCipher database in
+     * place, so an old copy of the header plus an old password can no longer open it.
+     * Crash-safe order: write pending header → re-key DB → promote header. The biometric slot
+     * wraps the old DEK, so fingerprint unlock must be re-enabled afterwards.
+     */
+    suspend fun rotateDatabaseKey(password: CharArray): UnlockResult = mutex.withLock {
+        withContext(Dispatchers.Default + NonCancellable) {
+            val header = headerStore.read() ?: return@withContext UnlockResult.NoVault
+            val db = session.databaseOrNull() ?: return@withContext UnlockResult.NoVault
+            when (val r = verifyPassword(header, password)) {
+                is Verified.Ok -> SecureBytes.wipe(r.dek)
+                is Verified.Failed -> return@withContext r.result
+            }
+            val newDek = SecureBytes.random(AesGcm.KEY_BYTES)
+            val params = KdfCalibrator(kdf).calibrate().params
+            val newHeader = keys.changePassword(header.copy(biometricSlot = null), newDek, password, params)
+            headerStore.writePending(newHeader)
+            val newDbKey = SqlCipherKey.rawKey(newDek)
+            (db.openHelper.writableDatabase as net.zetetic.database.sqlcipher.SQLiteDatabase).changePassword(newDbKey)
+            headerStore.write(newHeader)
+            headerStore.deletePending()
+            session.replaceKeys(newDek, newDbKey)
+            biometricKeys.deleteKey()
+            AresLog.i(COMPONENT, "Database key rotated")
             UnlockResult.Success
         }
     }

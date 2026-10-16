@@ -4,6 +4,9 @@
 
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
 
+    <!-- Lets the XOS help card ask to exempt AresVault from battery optimisation (spec §6.5). -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
     <!--
         Needed to read other apps' labels, icons and signing certificates (spec §4.4: app
         identity = package + signing cert). Android 11+ hides other packages without it.

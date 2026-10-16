@@ -16,10 +16,12 @@ import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.ares.vault.ui.backup.BackupScreen
 import com.ares.vault.ui.detail.DetailScreen
 import com.ares.vault.ui.edit.EditScreen
 import com.ares.vault.ui.generator.GeneratorScreen
 import com.ares.vault.ui.lock.LockScreen
+import com.ares.vault.ui.nav.BackupRoute
 import com.ares.vault.ui.nav.DetailRoute
 import com.ares.vault.ui.nav.EditRoute
 import com.ares.vault.ui.nav.GeneratorRoute
@@ -99,6 +101,9 @@ private fun VaultNavHost() {
         composable<GeneratorRoute> {
             GeneratorScreen(onBack = { nav.popBackStack() }, onSaveAsEntry = { nav.navigate(EditRoute()) })
         }
-        composable<SettingsRoute> { SettingsScreen(onBack = { nav.popBackStack() }) }
+        composable<SettingsRoute> {
+            SettingsScreen(onBack = { nav.popBackStack() }, onBackup = { nav.navigate(BackupRoute) })
+        }
+        composable<BackupRoute> { BackupScreen(onBack = { nav.popBackStack() }) }
     }
 }

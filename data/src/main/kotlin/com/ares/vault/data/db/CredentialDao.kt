@@ -48,6 +48,9 @@ interface CredentialDao {
     @Query("SELECT * FROM password_history WHERE credentialId = :id ORDER BY replacedAt DESC, id DESC")
     fun observeHistory(id: String): Flow<List<PasswordHistoryEntity>>
 
+    @Query("SELECT * FROM password_history WHERE credentialId = :id ORDER BY replacedAt DESC, id DESC")
+    suspend fun getHistory(id: String): List<PasswordHistoryEntity>
+
     @Insert
     suspend fun insertHistory(entry: PasswordHistoryEntity)
 

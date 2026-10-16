@@ -29,6 +29,7 @@ class AutoLockController @Inject constructor(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var backgroundSince: Long? = null
     private var timer: Job? = null
+    private var externalHoldUntil: Long = 0
 
     @Volatile var timeoutSeconds: Int = DEFAULT_TIMEOUT_SECONDS
         private set
@@ -48,8 +49,18 @@ class AutoLockController @Inject constructor(
         }
     }
 
+    /**
+     * The app is about to open a system screen we wait on (file picker for backup/import).
+     * The next trip to the background doesn't start the auto-lock timer for up to 5 minutes;
+     * screen-off still locks.
+     */
+    fun holdForExternalActivity() {
+        externalHoldUntil = clock.elapsedMillis() + EXTERNAL_HOLD_MS
+    }
+
     fun onAppBackground() {
         if (!session.isUnlocked) return
+        if (clock.elapsedMillis() < externalHoldUntil) return
         backgroundSince = clock.elapsedMillis()
         timer?.cancel()
         if (timeoutSeconds == NEVER) return
@@ -61,6 +72,7 @@ class AutoLockController @Inject constructor(
 
     fun onAppForeground() {
         lockIfExpired()
+        externalHoldUntil = 0
         backgroundSince = null
         timer?.cancel()
     }
@@ -96,6 +108,7 @@ class AutoLockController @Inject constructor(
     companion object {
         const val DEFAULT_TIMEOUT_SECONDS = 120
         const val NEVER = -1
+        private const val EXTERNAL_HOLD_MS = 5 * 60 * 1000L
         /** Options shown in Settings (seconds). 0 = immediately on leaving the app. */
         val TIMEOUT_OPTIONS = listOf(0, 30, 60, 120, 300, 900, 3600)
     }

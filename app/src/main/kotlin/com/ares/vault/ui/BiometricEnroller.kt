@@ -52,6 +52,9 @@ class BiometricEnroller @Inject constructor(
         }
     }
 
+    /** The user had fingerprint unlock on (used to offer re-enrolment). */
+    fun wanted(): Boolean = prefs.biometricWanted
+
     suspend fun disable() {
         manager.disableBiometric()
         prefs.biometricWanted = false

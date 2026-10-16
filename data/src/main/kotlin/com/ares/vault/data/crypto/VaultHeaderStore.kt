@@ -17,6 +17,13 @@ import javax.inject.Singleton
 class VaultHeaderStore @Inject constructor(@ApplicationContext context: Context) {
     private val file = AtomicFile(File(context.noBackupFilesDir, FILE_NAME))
 
+    /**
+     * Header for the *next* DEK during a database-key rotation. It exists only between
+     * "write pending header" and "promote it" — if the app dies in between, unlock uses it to
+     * recover (see VaultManager.rotateDatabaseKey).
+     */
+    private val pending = AtomicFile(File(context.noBackupFilesDir, PENDING_FILE_NAME))
+
     fun exists(): Boolean = file.baseFile.exists()
 
     /** Returns null if no vault has been created; throws InvalidHeaderException if corrupt. */
@@ -26,20 +33,36 @@ class VaultHeaderStore @Inject constructor(@ApplicationContext context: Context)
         null
     }
 
-    fun write(header: VaultHeader) {
-        val out = file.startWrite()
+    fun write(header: VaultHeader) = write(file, header)
+
+    fun readPending(): VaultHeader? = try {
+        VaultHeader.decode(pending.readFully())
+    } catch (_: FileNotFoundException) {
+        null
+    }
+
+    fun writePending(header: VaultHeader) = write(pending, header)
+
+    fun deletePending() = pending.delete()
+
+    private fun write(target: AtomicFile, header: VaultHeader) {
+        val out = target.startWrite()
         try {
             out.write(header.encode())
-            file.finishWrite(out)
+            target.finishWrite(out)
         } catch (e: Exception) {
-            file.failWrite(out)
+            target.failWrite(out)
             throw e
         }
     }
 
-    fun delete() = file.delete()
+    fun delete() {
+        file.delete()
+        pending.delete()
+    }
 
     companion object {
         const val FILE_NAME = "vault_header.json"
+        const val PENDING_FILE_NAME = "vault_header.pending.json"
     }
 }

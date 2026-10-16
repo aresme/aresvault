@@ -41,6 +41,7 @@ import com.ares.vault.core.policy.MasterPasswordPolicy
 import com.ares.vault.ui.BiometricEnroller
 import com.ares.vault.ui.components.AutofillSetupCard
 import com.ares.vault.ui.components.PasswordField
+import com.ares.vault.ui.components.XosHelpCard
 import com.ares.vault.ui.components.ScoreBar
 import com.ares.vault.ui.components.scoreLabel
 import kotlinx.coroutines.launch
@@ -171,6 +172,7 @@ private fun Autofill(vm: OnboardingViewModel) {
             "like Google Password Manager — but everything stays on this phone.",
     )
     AutofillSetupCard()
+    XosHelpCard()
     Button(onClick = vm::finish, modifier = Modifier.fillMaxWidth()) { Text("Done") }
 }
 

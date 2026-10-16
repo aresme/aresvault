@@ -28,8 +28,11 @@ class BrowserAllowlist(private val certsByPackage: Map<String, Set<String>>) {
     private data class Entry(val `package`: String, val certs: List<String>)
 
     companion object {
+        // Absolute path: R8 moves classes to other packages, which breaks relative lookups.
+        private const val RESOURCE = "/com/ares/vault/core/autofill/browsers.json"
+
         val default: BrowserAllowlist by lazy {
-            val text = checkNotNull(BrowserAllowlist::class.java.getResourceAsStream("browsers.json")) {
+            val text = checkNotNull(BrowserAllowlist::class.java.getResourceAsStream(RESOURCE)) {
                 "browsers.json missing"
             }.bufferedReader().use { it.readText() }
             val file = Json.decodeFromString(File.serializer(), text)

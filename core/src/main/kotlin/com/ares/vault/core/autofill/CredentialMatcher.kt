@@ -21,7 +21,13 @@ data class StoredIdentity(
 
 enum class MatchResult { MATCH, NONE, CERT_MISMATCH }
 
-class CredentialMatcher(private val psl: PublicSuffixList = PublicSuffixList.default) {
+/**
+ * @param psl supplied lazily: parsing the ~10k-rule list is only needed for website identities,
+ *   and must not delay the first app autofill request after a cold start.
+ */
+class CredentialMatcher(psl: () -> PublicSuffixList = { PublicSuffixList.default }) {
+    private val psl by lazy(psl)
+
 
     /**
      * @param certMatches checks a stored cert against the *installed* app (allows the

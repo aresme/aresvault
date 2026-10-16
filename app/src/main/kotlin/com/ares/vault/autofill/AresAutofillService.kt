@@ -9,7 +9,9 @@ import android.service.autofill.FillRequest
 import android.service.autofill.SaveCallback
 import android.service.autofill.SaveRequest
 import android.widget.Toast
+import com.ares.vault.core.autofill.BrowserAllowlist
 import com.ares.vault.core.autofill.FormType
+import com.ares.vault.core.autofill.PublicSuffixList
 import com.ares.vault.data.AresLog
 import com.ares.vault.data.session.AutoLockController
 import dagger.hilt.android.AndroidEntryPoint
@@ -52,6 +54,7 @@ class AresAutofillService : AutofillService() {
                         null
                     }
                     val ctx = contexts.create(structure, inline) ?: return@withTimeoutOrNull null
+                    AresLog.d(COMPONENT, "Fill request for ${ctx.parsed.packageName}: ${ctx.analysis.type}")
                     // XOS may have frozen us past the auto-lock deadline: check before reading anything.
                     withContext(Dispatchers.Main) { autoLock.lockIfExpired() }
                     when (ctx.analysis.type) {
@@ -60,6 +63,7 @@ class AresAutofillService : AutofillService() {
                         FormType.NONE -> null
                     }
                 }
+                if (response == null) AresLog.d(COMPONENT, "No response (nothing to offer or over time budget)")
                 callback.onSuccess(response)
             } catch (e: CancellationException) {
                 throw e
@@ -109,6 +113,11 @@ class AresAutofillService : AutofillService() {
 
     override fun onConnected() {
         AresLog.d(COMPONENT, "Autofill service connected")
+        // Warm the bundled lists off the request path so the first fill isn't slow.
+        scope.launch {
+            PublicSuffixList.default
+            BrowserAllowlist.default
+        }
     }
 
     override fun onDestroy() {
@@ -118,6 +127,7 @@ class AresAutofillService : AutofillService() {
 
     companion object {
         private const val COMPONENT = "Autofill"
-        private const val RESPONSE_BUDGET_MS = 1500L
+        /** The framework gives up after ~5 s; cold starts on a frozen XOS process need headroom. */
+        private const val RESPONSE_BUDGET_MS = 3000L
     }
 }

@@ -31,12 +31,20 @@ class AutofillSaveTest : AutofillTestBase("login") {
 
     private fun entries() = runBlocking { hooks.credentials().all() }
 
+    /** Polls until the vault holds exactly one entry matching [password] (saving is async). */
+    private fun awaitSaved(password: String) = run {
+        val deadline = System.currentTimeMillis() + 10_000
+        while (System.currentTimeMillis() < deadline) {
+            entries().singleOrNull { it.password == password }?.let { return@run it }
+            Thread.sleep(250)
+        }
+        error("Login with the expected password was not saved; entries=${entries().map { it.username }}")
+    }
+
     @Test fun submittingNewLoginSavesIt() {
         typeAndSubmit("bob@test.dev", "Brand-new-pass-1")
         acceptSystemSavePrompt()
-        device.wait(Until.hasObject(By.pkg("com.android.launcher3")), 2_000)
-        Thread.sleep(1_500)
-        val saved = entries().single()
+        val saved = awaitSaved("Brand-new-pass-1")
         assertThat(saved.username).isEqualTo("bob@test.dev")
         assertThat(saved.password).isEqualTo("Brand-new-pass-1")
         assertThat(saved.appPackage).isEqualTo(pkg)
@@ -50,9 +58,7 @@ class AutofillSaveTest : AutofillTestBase("login") {
         val update = device.wait(Until.findObject(By.text("Update")), 8_000)
         assertThat(update).isNotNull()
         update.click()
-        Thread.sleep(1_500)
-        val entry = entries().single()
-        assertThat(entry.password).isEqualTo("New-pass-456")
+        val entry = awaitSaved("New-pass-456")
         val history = runBlocking { hooks.credentials().observeHistory(entry.id).first() }
         assertThat(history.map { it.password }).containsExactly("Old-pass-123")
     }
@@ -62,8 +68,7 @@ class AutofillSaveTest : AutofillTestBase("login") {
         typeAndSubmit("dave@test.dev", "Locked-save-789")
         acceptSystemSavePrompt()
         enterMasterPassword()
-        Thread.sleep(1_500)
-        val saved = entries().single()
+        val saved = awaitSaved("Locked-save-789")
         assertThat(saved.username).isEqualTo("dave@test.dev")
         assertThat(saved.password).isEqualTo("Locked-save-789")
     }

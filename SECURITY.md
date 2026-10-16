@@ -36,9 +36,17 @@ master password ──Argon2id(salt, params)──► KEK (32 B, never stored)
 - **SQLCipher raw-key mode**: the DEK is already uniformly random, so SQLCipher's internal
   PBKDF2 is skipped (it would only slow unlocking without adding security).
 - **Change master password** re-wraps the DEK with a new salt and re-calibrated params.
-  The database is not re-encrypted. *Limitation*: an old copy of the header plus the old
-  password would still open the DB. A "rotate database key" (`PRAGMA rekey`) action is
-  planned for the settings screen.
+  The database is not re-encrypted, so an old copy of the header plus the old password
+  would still open the DB. **Rotate database key** (Settings) closes that gap: it generates a
+  new DEK and re-keys SQLCipher in place (`changePassword` with the raw key). The order is
+  crash-safe:
+  1. write a *pending* header for the new DEK;
+  2. re-key the database;
+  3. promote the pending header.
+
+  If the app dies in between, the next password unlock detects the pending header and either
+  discards it (DB not yet re-keyed) or completes the rotation (tested on device). The
+  biometric slot wrapped the old DEK, so it is removed and the user is offered re-enrolment.
 - **Biometric slot**: the key needs authentication for every operation (timeout 0) and only
   works through a `BiometricPrompt` `CryptoObject`. Enrolling a new fingerprint invalidates
   it permanently. The app then drops the slot, falls back to the master password and offers
@@ -117,6 +125,26 @@ master password ──Argon2id(salt, params)──► KEK (32 B, never stored)
 - New entries pin the requester's identity: app package + signing certificate, or the site
   host from a verified browser.
 
+## Backups (Phase 6)
+
+- `.aresvault` = JSON container `{format, version, kdf, salt, sealed}`. The payload (entries
+  and password history) is encrypted with AES-256-GCM under Argon2id(backup password, random
+  16-byte salt), default 64 MiB / t=3, so it restores on slower phones. Format, version, KDF
+  params and salt are bound as AAD. Hostile files with huge KDF params are rejected before
+  deriving.
+- The backup key is independent of the vault's keys. A backup can be restored on a new phone
+  with only its backup password, which must meet the same strength policy as the master
+  password.
+- CSV import (Google Password Manager / Firefox) keeps Android-app identity:
+  `android://<base64url cert SHA-256>@<package>/` becomes package + cert. Exact duplicates are
+  skipped. The user is prompted to delete the plaintext CSV through the Storage Access
+  Framework.
+- Plaintext CSV export requires re-entering the master password (throttled like unlock) and
+  shows an explicit warning.
+- All file access goes through the Storage Access Framework. No storage permission is
+  requested. Auto-lock is held for up to 5 minutes while the system file picker is open
+  (screen-off still locks).
+
 ## Platform quirks found on Infinix XOS
 
 - **Inline (keyboard) suggestions are disabled.** XOS switches password fields to its own
@@ -157,6 +185,15 @@ the vault is unlocked, or hardware attacks on the TEE/StrongBox.
 - Locked-state autofill can show account *usernames* (setting "Show account names when
   locked", default **on**, like Google Password Manager). The index is encrypted with a
   separate non-auth Keystore key, so it is protected at rest but readable without unlock.
-  Selecting an account always requires biometric/master-password unlock. (Phase 4)
+  Selecting an account always requires biometric or master-password unlock.
+- "Ask before every fill" defaults to **on** (spec §1: picking an account asks for the
+  fingerprint), even when the vault is already unlocked.
 - Brute-force delays after 5 wrong attempts slow down only people using the app UI.
-  The real protection is Argon2id. (Phase 3)
+  The real protection is Argon2id.
+- `QUERY_ALL_PACKAGES` is needed to read other apps' signing certificates (app identity).
+  `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` is used only by the XOS help card's exemption prompt.
+- Inline keyboard suggestions are off because of the XOS secure keyboard (see above).
+- Opera is not in the browser allowlist: its signing certificate couldn't be verified
+  without the app installed. Use `scripts/browser-cert.sh` to add it.
+- Same-package/different-signature impersonation was tested on device with an
+  impostor-signed build (README → Anti-phishing test).

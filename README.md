@@ -66,6 +66,7 @@ means future updates can't be installed over the app.
 ```bash
 scripts/make-release-key.sh          # once: creates the EC P-256 key with a random password
 scripts/build-release.sh --install   # minified release, signed with the key, installed as an update
+./gradlew assembleRelease -PreleaseTest   # same release as com.ares.vault.rtest, for smoke-testing next to the real app
 ```
 
 The first installs were debug-signed. `build-release.sh` signs with an **APK Signature

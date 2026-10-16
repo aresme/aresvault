@@ -48,6 +48,9 @@ android {
             buildConfigField("boolean", "ALLOW_SCREENSHOTS", "true")
         }
         release {
+            // `-PreleaseTest`: same minified release, installed as com.ares.vault.rtest so it can
+            // be smoke-tested next to the real app before an upgrade.
+            if (project.hasProperty("releaseTest")) applicationIdSuffix = ".rtest"
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")

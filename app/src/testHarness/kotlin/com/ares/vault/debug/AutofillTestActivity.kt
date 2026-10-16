@@ -52,6 +52,16 @@ class AutofillTestActivity : Activity() {
                 confirm = field("confirm", "Confirm password", text or InputType.TYPE_TEXT_VARIATION_PASSWORD, null)
                 root.addView(Button(this).apply { this.text = "Sign up"; setOnClickListener { finish() } })
             }
+            "passkey" -> {
+                root.addView(TextView(this).apply { this.text = "Passkey test (${PasskeyHarness.RP})"; textSize = 24f })
+                username = EditText(this)
+                password = EditText(this)
+                val status = TextView(this).apply { contentDescription = "passkey_status"; this.text = "idle" }
+                val harness = PasskeyHarness(this, status)
+                root.addView(Button(this).apply { this.text = "Create passkey"; setOnClickListener { harness.create() } })
+                root.addView(Button(this).apply { this.text = "Sign in with passkey"; setOnClickListener { harness.signIn() } })
+                root.addView(status)
+            }
             "otp" -> {
                 root.addView(TextView(this).apply { this.text = "Enter the 6-digit code"; textSize = 24f })
                 username = EditText(this)

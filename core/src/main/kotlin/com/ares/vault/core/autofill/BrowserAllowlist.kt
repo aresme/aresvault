@@ -21,6 +21,25 @@ class BrowserAllowlist(private val certsByPackage: Map<String, Set<String>>) {
 
     val packages: Set<String> get() = certsByPackage.keys
 
+    /**
+     * The allowlist in Google's "privileged apps" JSON format, as expected by
+     * Credential Manager's CallingAppInfo.getOrigin(): only these browsers may assert a web origin.
+     */
+    fun toPrivilegedAppsJson(): String = buildString {
+        append("{\"apps\":[")
+        certsByPackage.entries.forEachIndexed { i, (pkg, certs) ->
+            if (i > 0) append(',')
+            append("{\"type\":\"android\",\"info\":{\"package_name\":\"").append(pkg).append("\",\"signatures\":[")
+            certs.forEachIndexed { j, c ->
+                if (j > 0) append(',')
+                val colon = c.uppercase().chunked(2).joinToString(":")
+                append("{\"build\":\"release\",\"cert_fingerprint_sha256\":\"").append(colon).append("\"}")
+            }
+            append("]}}")
+        }
+        append("]}")
+    }
+
     @Serializable
     private data class File(val source: String, val browsers: List<Entry>)
 

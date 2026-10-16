@@ -84,16 +84,23 @@ class KeyRotationTest {
         val backups = BackupRepository(session, repo, kdf)
         val id = repo.create(CredentialDraft(title = "GitHub", username = "alice", password = "v1", webDomain = "github.com"))
         repo.update(id, CredentialDraft(title = "GitHub", username = "alice", password = "v2", webDomain = "github.com"))
+        session.databaseOrNull()!!.passkeys().insert(
+            com.ares.vault.data.db.PasskeyEntity(
+                id = "pk1", credentialId = "Y3JlZA", rpId = "webauthn.io", rpName = "WebAuthn", userHandle = "dQ",
+                userName = "kip", userDisplayName = "Kip", privateKey = "a2V5", createdAt = 1,
+            ),
+        )
         val bytes = backups.exportEncrypted("backup-pass-123".toCharArray())
 
         manager.destroy() // "wipe app data"
         manager.create(pw.copyOf())
         val report = backups.importEncrypted(bytes, "backup-pass-123".toCharArray())
-        assertThat(report.added).isEqualTo(1)
+        assertThat(report.added).isEqualTo(2) // the login and the passkey
+        assertThat(session.databaseOrNull()!!.passkeys().byCredentialId("Y3JlZA")!!.rpId).isEqualTo("webauthn.io")
         val restored = repo.get(id)!!
         assertThat(restored.password).isEqualTo("v2")
         assertThat(session.databaseOrNull()!!.credentials().getHistory(id).map { it.password }).containsExactly("v1")
         // Importing the same backup again changes nothing.
-        assertThat(backups.importEncrypted(bytes, "backup-pass-123".toCharArray()).skipped).isEqualTo(1)
+        assertThat(backups.importEncrypted(bytes, "backup-pass-123".toCharArray()).skipped).isEqualTo(2)
     }
 }

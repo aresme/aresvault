@@ -23,6 +23,8 @@ import com.ares.vault.ui.generator.GeneratorScreen
 import com.ares.vault.ui.lock.LockScreen
 import com.ares.vault.ui.nav.BackupRoute
 import com.ares.vault.ui.nav.ImportAuthenticatorRoute
+import com.ares.vault.ui.nav.PasskeysRoute
+import com.ares.vault.ui.passkeys.PasskeysScreen
 import com.ares.vault.ui.nav.ScanTotpRoute
 import com.ares.vault.ui.scan.ImportAuthenticatorRoute
 import com.ares.vault.ui.scan.ScanResultViewModel
@@ -86,6 +88,7 @@ private fun VaultNavHost() {
                 onAdd = { nav.navigate(EditRoute()) },
                 onGenerator = { nav.navigate(GeneratorRoute) },
                 onSettings = { nav.navigate(SettingsRoute) },
+                onPasskeys = { nav.navigate(PasskeysRoute) },
                 onReenrollBiometric = { enrollerVm.enable(it) },
             )
         }
@@ -108,11 +111,12 @@ private fun VaultNavHost() {
             GeneratorScreen(onBack = { nav.popBackStack() }, onSaveAsEntry = { nav.navigate(EditRoute()) })
         }
         composable<SettingsRoute> {
-            SettingsScreen(onBack = { nav.popBackStack() }, onBackup = { nav.navigate(BackupRoute) })
+            SettingsScreen(onBack = { nav.popBackStack() }, onBackup = { nav.navigate(BackupRoute) }, onPasskeys = { nav.navigate(PasskeysRoute) })
         }
         composable<BackupRoute> {
             BackupScreen(onBack = { nav.popBackStack() }, onImportAuthenticator = { nav.navigate(ImportAuthenticatorRoute) })
         }
+        composable<PasskeysRoute> { PasskeysScreen(onBack = { nav.popBackStack() }) }
         composable<ScanTotpRoute> {
             val scans: ScanResultViewModel = hiltViewModel()
             ScanTotpScreen(onBack = { nav.popBackStack() }, onResult = { scans.deliver(it); nav.popBackStack() })

@@ -89,6 +89,7 @@ fun VaultListScreen(
     onAdd: () -> Unit,
     onGenerator: () -> Unit,
     onSettings: () -> Unit,
+    onPasskeys: () -> Unit,
     onReenrollBiometric: suspend (FragmentActivity) -> Unit,
     vm: VaultListViewModel = hiltViewModel(),
 ) {
@@ -133,7 +134,7 @@ fun VaultListScreen(
                 shape = RoundedCornerShape(28.dp),
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
             )
-            FilterBar(state, controls, vm)
+            FilterBar(state, controls, vm, onPasskeys)
 
             if (!state.loading && state.total == 0) {
                 EmptyState("Your vault is empty", "Tap + to add a login, import from Google Password Manager in Settings, or let autofill save one for you.")
@@ -200,7 +201,7 @@ fun VaultListScreen(
 }
 
 @Composable
-private fun FilterBar(state: VaultListViewModel.ListState, controls: VaultListViewModel.Controls, vm: VaultListViewModel) {
+private fun FilterBar(state: VaultListViewModel.ListState, controls: VaultListViewModel.Controls, vm: VaultListViewModel, onPasskeys: () -> Unit) {
     var sortMenu by remember { mutableStateOf(false) }
     Row(verticalAlignment = Alignment.CenterVertically) {
         LazyRow(
@@ -212,6 +213,7 @@ private fun FilterBar(state: VaultListViewModel.ListState, controls: VaultListVi
             item { Chip("Favourites", controls.filter == VaultFilter.FAVORITES, Icons.Filled.Star) { vm.setFilter(VaultFilter.FAVORITES) } }
             item { Chip("Websites", controls.filter == VaultFilter.WEBSITES, Icons.Filled.Language) { vm.setFilter(VaultFilter.WEBSITES) } }
             item { Chip("Apps", controls.filter == VaultFilter.APPS, Icons.Filled.Apps) { vm.setFilter(VaultFilter.APPS) } }
+            item { Chip("Passkeys", false, Icons.Filled.Key) { onPasskeys() } }
             items(state.folders) { f -> Chip(f, controls.folder == f, Icons.Filled.Folder) { vm.setFolder(f) } }
         }
         Box {

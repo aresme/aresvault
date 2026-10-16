@@ -119,6 +119,8 @@ dependencies {
     implementation(libs.androidx.camera.lifecycle)
     implementation(libs.androidx.camera.view)
     implementation(libs.zxing.core)
+    // Passkey provider (Credential Manager, Android 14+).
+    implementation(libs.androidx.credentials)
     implementation(libs.androidx.work.runtime)
 
     implementation(platform(libs.androidx.compose.bom))

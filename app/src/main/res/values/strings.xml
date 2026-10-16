@@ -8,4 +8,5 @@
     <string name="autofill_generate">🔑 Generate strong password</string>
     <string name="autofill_generate_subtitle">AresVault · fills password and confirmation</string>
     <string name="autofill_otp">2FA code · %1$s</string>
+    <string name="passkey_provider_subtitle">Passkeys stored on this phone</string>
 </resources>

@@ -53,7 +53,7 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(onBack: () -> Unit, onBackup: () -> Unit, vm: SettingsViewModel = hiltViewModel()) {
+fun SettingsScreen(onBack: () -> Unit, onBackup: () -> Unit, onPasskeys: () -> Unit, vm: SettingsViewModel = hiltViewModel()) {
     val settings by vm.settings.collectAsStateWithLifecycle()
     val generator by vm.generator.collectAsStateWithLifecycle()
     val biometric by vm.biometricEnabled.collectAsStateWithLifecycle()
@@ -114,6 +114,9 @@ fun SettingsScreen(onBack: () -> Unit, onBackup: () -> Unit, vm: SettingsViewMod
             ) { v -> vm.update { it.copy(requireAuthToFill = v) } }
             AutofillSetupCard(Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
             XosHelpCard(Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+
+            Section("Passkeys")
+            ClickItem("Passkeys", "Use AresVault for passkeys and manage the ones you've saved") { onPasskeys() }
 
             Section("Backup")
             ClickItem("Backup & import", "Encrypted backup, restore, import from Google Password Manager") { onBackup() }

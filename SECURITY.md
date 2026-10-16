@@ -158,12 +158,44 @@ master password ──Argon2id(salt, params)──► KEK (32 B, never stored)
   activity after unlock or confirmation, and only for a login matching the requester's identity.
 - `CAMERA` permission is requested only when scanning. QR decoding is ZXing on-device.
 
+## Passkeys (Phase 9)
+
+- AresVault is a Credential Manager provider for `androidx.credentials.TYPE_PUBLIC_KEY_CREDENTIAL`.
+  Passkeys are ES256 (P-256) key pairs from the platform JCA. Private keys are stored PKCS#8
+  in the SQLCipher DB (v4), not the Keystore, so encrypted backups include them. Attestation
+  is `none`. The AAGUID is fixed, and flags are UP|UV (device-bound: BE/BS not set).
+  The sign counter is incremented on every use.
+- **Caller identity:**
+  - **Browsers:** an origin is accepted only through `CallingAppInfo.getOrigin()` with
+    AresVault's privileged allowlist, the same verified browser packages and certificates as
+    autofill. The rpId must equal the origin host or a registrable parent of it, over https,
+    and must not be a public suffix.
+  - **Native apps:** the origin is `android:apk-key-hash:<cert SHA-256>`. The usual Digital
+    Asset Links check needs the network, so AresVault instead asks the user once per
+    (rpId, package, signing cert), with a clear warning, and stores the approval. A re-signed
+    impostor has a different cert and gets asked again.
+- **User verification:** every create and sign-in requires unlock (fingerprint CryptoObject or
+  master password) or a fingerprint/screen-lock confirmation. An unlock performed by
+  Credential Manager's "Unlock AresVault" step counts once for the very next operation, within
+  30 s, so the user isn't prompted twice.
+- `excludeCredentials` is honoured (InvalidStateError when the account already has an AresVault
+  passkey).
+- Verified on device: registration and assertion through the real Credential Manager, with the
+  test relying party checking the signature, challenge, rpIdHash and flags (`PasskeyTest`).
+  Browser passkeys follow the same code path with a browser-supplied origin, but they weren't
+  exercised on device because that would mean changing the user's Chrome settings.
+
 ## Platform quirks found on Infinix XOS
 
 - **Inline (keyboard) suggestions are disabled.** XOS switches password fields to its own
   secure keyboard (`com.transsion.sk`), which never answers Android's inline-suggestions
   request. With inline support declared, the autofill session hangs and no suggestions
   appear. The dropdown works with every keyboard.
+- Credential Manager ignores a provider whose capability is `android.credentials.…`; the
+  passkey capability must be spelled `androidx.credentials.TYPE_PUBLIC_KEY_CREDENTIAL`
+  ("Service does not have the required capabilities" in logcat).
+- On XOS, Credential Manager's settings intent opens *Users & Accounts*. Providers are chosen
+  on the *Preferred service* page (the autofill picker).
 - **Compatibility mode** entries (Phoenix, Opera, Samsung Internet) are ignored unless the
   package is in the system's compat allowlist (`AutofillManagerService: Ignoring not allowed
   compat package`). Those browsers need native Autofill-Framework support to work.

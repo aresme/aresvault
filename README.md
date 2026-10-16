@@ -111,6 +111,27 @@ never answers Android's inline request, which made autofill hang. See SECURITY.m
   "2FA" folder.
 - Scanning uses CameraX + ZXing on the phone. Camera frames never leave the device.
 
+## Passkeys (Android 14+)
+
+1. Android Settings → Passwords & accounts → **Preferred service** → choose **AresVault**
+   (subtitle "Passkeys stored on this phone"). It then handles passwords *and* passkeys.
+   In-app: home → **Passkeys** chip → *Turn on AresVault for passkeys*.
+2. When a site or app offers **Create a passkey**, pick AresVault. Sign-in then needs only
+   your fingerprint.
+3. **Websites** work through browsers on the verified list (Chrome, Firefox, Brave, Edge…),
+   which vouch for the site's address. Chrome must use "Autofill using another service".
+4. **Native apps:** the first time an app wants a passkey for a site, AresVault asks you to
+   approve that app (package + signature) for that site. Android normally checks this online,
+   and AresVault has no internet. Only allow official apps.
+
+Passkeys are listed and deleted on home → **Passkeys**, and they are included in encrypted
+`.aresvault` backups.
+
+Debug test (relying party simulator):
+```bash
+adb shell am start -n com.ares.vault.staging/com.ares.vault.debug.AutofillTestActivity --es mode passkey
+```
+
 ## Backup and import
 
 **Settings → Backup & import**:
@@ -187,7 +208,7 @@ adb logcat AresVault:V BiometricPrompt:V AutofillManagerService:V AutofillSessio
 ./gradlew test                                  # JVM + Robolectric unit tests (core, data, app)
 ./gradlew :data:connectedDebugAndroidTest       # on-device: Argon2kt vs Bouncy Castle, SQLCipher, lockout,
                                                 #   key rotation and crash recovery, backup round trip
-./gradlew :app:connectedStagingAndroidTest      # end-to-end autofill: fill, locked fill, generate, save, update
+./gradlew :app:connectedStagingAndroidTest      # end-to-end: fill, locked fill, generate, save, update, 2FA, passkeys
 ```
 
 The staging tests switch the phone's autofill service to `com.ares.vault.staging` and restore

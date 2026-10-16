@@ -10,15 +10,19 @@ import com.ares.vault.core.crypto.SqlCipherKey
 import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 
 @Database(
-    entities = [CredentialEntity::class, PasswordHistoryEntity::class, SettingsEntity::class],
-    version = 3,
+    entities = [
+        CredentialEntity::class, PasswordHistoryEntity::class, SettingsEntity::class,
+        PasskeyEntity::class, PasskeyAppLinkEntity::class,
+    ],
+    version = 4,
     exportSchema = true,
-    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3)],
+    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4)],
 )
 @TypeConverters(Converters::class)
 abstract class VaultDatabase : RoomDatabase() {
     abstract fun credentials(): CredentialDao
     abstract fun settings(): SettingsDao
+    abstract fun passkeys(): PasskeyDao
 
     companion object {
         const val FILE_NAME = "vault.db"

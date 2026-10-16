@@ -3,6 +3,8 @@ package com.ares.vault.data.backup
 import com.ares.vault.core.backup.BackupCodec
 import com.ares.vault.core.backup.BackupEntry
 import com.ares.vault.core.backup.BackupHistory
+import com.ares.vault.core.backup.BackupPasskey
+import com.ares.vault.data.db.PasskeyEntity
 import com.ares.vault.core.backup.BackupPayload
 import com.ares.vault.core.backup.ImportedLogin
 import com.ares.vault.core.backup.PasswordCsv
@@ -59,6 +61,17 @@ class BackupRepository @Inject constructor(
                 else -> skipped++
             }
         }
+        val passkeyDao = session.databaseOrNull()!!.passkeys()
+        for (p in payload.passkeys) {
+            if (passkeyDao.byCredentialId(p.credentialId) != null) {
+                skipped++
+                continue
+            }
+            passkeyDao.insert(
+                PasskeyEntity(p.id, p.credentialId, p.rpId, p.rpName, p.userHandle, p.userName, p.userDisplayName, p.privateKey, p.signCount, p.createdAt, p.lastUsedAt),
+            )
+            added++
+        }
         ImportReport(added, updated, skipped)
     }
 
@@ -101,7 +114,10 @@ class BackupRepository @Inject constructor(
                 history = dao.getHistory(c.id).map { BackupHistory(it.password, it.replacedAt) },
             )
         }
-        return BackupPayload(exportedAt = System.currentTimeMillis(), entries = entries)
+        val passkeys = session.databaseOrNull()!!.passkeys().getAll().map { p ->
+            BackupPasskey(p.id, p.credentialId, p.rpId, p.rpName, p.userHandle, p.userName, p.userDisplayName, p.privateKey, p.signCount, p.createdAt, p.lastUsedAt)
+        }
+        return BackupPayload(exportedAt = System.currentTimeMillis(), entries = entries, passkeys = passkeys)
     }
 
     private fun BackupEntry.toEntity() = CredentialEntity(

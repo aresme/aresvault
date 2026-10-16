@@ -37,7 +37,20 @@ data class BackupEntry(
 )
 
 @Serializable
-data class BackupPayload(val version: Int = 1, val exportedAt: Long, val entries: List<BackupEntry>)
+data class BackupPasskey(
+    val id: String, val credentialId: String, val rpId: String, val rpName: String, val userHandle: String,
+    val userName: String, val userDisplayName: String, val privateKey: String, val signCount: Long,
+    val createdAt: Long, val lastUsedAt: Long? = null,
+)
+
+@Serializable
+data class BackupPayload(
+    val version: Int = 1,
+    val exportedAt: Long,
+    val entries: List<BackupEntry>,
+    /** Added in Phase 9; older backups have none. */
+    val passkeys: List<BackupPasskey> = emptyList(),
+)
 
 class InvalidBackupException(message: String, cause: Throwable? = null) : Exception(message, cause)
 

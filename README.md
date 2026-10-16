@@ -25,8 +25,9 @@ See [SECURITY.md](SECURITY.md) for the key hierarchy, threat model and design de
 | `:data` | Android library: Argon2kt KDF, SQLCipher + Room database, Keystore keys, `VaultSession`/`VaultManager` (unlock, rotate key), repositories, autofill index, backups. |
 | `:app`  | Compose UI, Hilt wiring, `AresAutofillService` and its activities, debug test harness (`src/testHarness`). |
 
-Build types: `debug` (your install), `staging` (`com.ares.vault.staging`, used by instrumented
-tests so they never touch your vault), `release` (minified).
+Build types: `debug` (development), `staging` (`com.ares.vault.staging`, used by instrumented
+tests so they never touch your vault; screenshots allowed for visual QA), `release` (minified,
+signed with your own key; see below).
 
 ## Requirements (Ubuntu)
 
@@ -55,6 +56,23 @@ XOS asks you to confirm "Install via USB" the first time. Approve it on the phon
 adb shell am start -n com.ares.vault/.MainActivity
 ./gradlew assembleRelease                       # minified release APK (unsigned)
 ```
+
+## Release signing (your own key)
+
+AresVault's release key lives **outside the repo** in `~/.aresvault/` (`release.jks`,
+`release.properties`, `release.pass`, `lineage.bin`). **Back up that folder offline.** Losing it
+means future updates can't be installed over the app.
+
+```bash
+scripts/make-release-key.sh          # once: creates the EC P-256 key with a random password
+scripts/build-release.sh --install   # minified release, signed with the key, installed as an update
+```
+
+The first installs were debug-signed. `build-release.sh` signs with an **APK Signature
+Scheme v3 rotation lineage** (debug key → release key), so `adb install -r` upgrades the
+existing app **in place**. The vault, Keystore keys and settings all survive (verified on
+staging). After that upgrade, plain debug-signed builds can no longer install over the app.
+Use `build-release.sh`, or `scripts/install-staging.sh` for the test package.
 
 ## Set up autofill
 

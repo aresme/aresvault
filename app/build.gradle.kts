@@ -16,6 +16,7 @@ android {
         targetSdk = 37
         versionCode = 1
         versionName = "0.1.0"
+        buildConfigField("boolean", "ALLOW_SCREENSHOTS", "false")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -43,6 +44,8 @@ android {
             initWith(getByName("debug"))
             applicationIdSuffix = ".staging"
             matchingFallbacks += listOf("debug")
+            // Test-only build: allow screenshots for visual QA. Never true for debug/release.
+            buildConfigField("boolean", "ALLOW_SCREENSHOTS", "true")
         }
         release {
             isMinifyEnabled = true

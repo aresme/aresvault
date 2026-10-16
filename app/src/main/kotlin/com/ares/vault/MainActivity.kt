@@ -17,7 +17,9 @@ class MainActivity : FragmentActivity() {
         super.onCreate(savedInstanceState)
         // Spec §4.3: block screenshots/screen recording and blank the recents thumbnail.
         // Compose dialogs and bottom sheets inherit this flag (SecureFlagPolicy.Inherit).
-        window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+        if (!BuildConfig.ALLOW_SCREENSHOTS) {
+            window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+        }
         // Keep the vault's own fields invisible to *any* autofill service (including another
         // password manager such as Google's), so it can't read or offer to save our secrets.
         window.decorView.importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS

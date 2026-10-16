@@ -195,5 +195,8 @@ the vault is unlocked, or hardware attacks on the TEE/StrongBox.
 - Inline keyboard suggestions are off because of the XOS secure keyboard (see above).
 - Opera is not in the browser allowlist: its signing certificate couldn't be verified
   without the app installed. Use `scripts/browser-cert.sh` to add it.
+- Release builds are signed with a dedicated EC P-256 key stored outside the repository, with a
+  v3 rotation lineage from the original debug key so existing installs upgrade without data
+  loss. `FLAG_SECURE` is disabled only in the `staging` test build (`ALLOW_SCREENSHOTS`).
 - Same-package/different-signature impersonation was tested on device with an
   impostor-signed build (README → Anti-phishing test).

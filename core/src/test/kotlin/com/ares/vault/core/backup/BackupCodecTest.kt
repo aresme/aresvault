@@ -57,4 +57,14 @@ class BackupCodecTest {
         val wrongFormat = text.replace("aresvault-backup", "other")
         assertThrows(InvalidBackupException::class.java) { codec.decrypt(wrongFormat.toByteArray(), "pw-1234567890".toCharArray()) }
     }
+
+    @Test fun storedKeyBackupsRestoreWithThePassword() {
+        val key = codec.deriveKey("auto-backup-pass-9".toCharArray(), fast)
+        val first = codec.encryptWithKey(payload, key)
+        val second = codec.encryptWithKey(payload, key)
+        assertThat(first).isNotEqualTo(second) // fresh IV each time
+        assertThat(codec.decrypt(first, "auto-backup-pass-9".toCharArray())).isEqualTo(payload)
+        assertThat(codec.decrypt(second, "auto-backup-pass-9".toCharArray())).isEqualTo(payload)
+        assertThrows(AuthenticationFailedException::class.java) { codec.decrypt(first, "wrong".toCharArray()) }
+    }
 }

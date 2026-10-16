@@ -98,6 +98,20 @@ Using it:
 Keyboard-strip (inline) suggestions are disabled on purpose: XOS's secure password keyboard
 never answers Android's inline request, which made autofill hang. See SECURITY.md.
 
+## Automatic backups
+
+Settings → Backup & import → **Automatic backups → Choose folder & turn on**:
+pick a folder (Android won't allow the root of internal storage or Downloads, so use a
+subfolder), then set a backup password once. From then on, every change to your logins,
+passkeys or 2FA codes writes `AresVault-auto-<date_time>.aresvault` to that folder a few
+seconds later. Only the newest 3/5/10 are kept, and manual backups are never deleted.
+
+- Choose a folder that **leaves the phone**: SD card, USB-OTG drive, or a folder synced by your
+  Google Drive / OneDrive / Syncthing app. AresVault only writes a local file. It still has no
+  internet permission.
+- Restore any of them with **Restore from backup** and the backup password.
+- Backups run only while the vault is unlocked, since that's the only time AresVault can read it.
+
 ## Email backups
 
 Settings → Backup & import → **Email encrypted backup**:

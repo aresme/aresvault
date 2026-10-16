@@ -57,6 +57,10 @@ fun BackupScreen(onBack: () -> Unit, onImportAuthenticator: () -> Unit, vm: Back
     val today = LocalDate.now().toString()
     val email by vm.email.collectAsStateWithLifecycle()
     val context = androidx.compose.ui.platform.LocalContext.current
+    val auto by vm.settings.collectAsStateWithLifecycle()
+    val pickFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (vm.folderChosen(uri)) dialog = Dialog.AUTO
+    }
     val askNotifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
     LaunchedEffect(Unit) { vm.emailIntent.collect { context.startActivity(it) } }
     LaunchedEffect(Unit) { if (vm.emailNow && email.address.isNotBlank()) dialog = Dialog.EMAIL }
@@ -75,6 +79,20 @@ fun BackupScreen(onBack: () -> Unit, onImportAuthenticator: () -> Unit, vm: Back
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             if (ui.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+            Section(
+                "Automatic backups",
+                "Saves an encrypted backup to a folder you choose every time your logins, passkeys or 2FA codes change. " +
+                    "Pick a folder that leaves the phone: an SD card, a USB drive, or a folder your Google Drive / OneDrive app syncs.",
+            ) {
+                AutoBackupStatus(
+                    settings = auto,
+                    onSetup = { vm.beforePicker(); pickFolder.launch(null) },
+                    onNow = vm::backUpNow,
+                    onKeep = vm::setKeep,
+                    onOff = vm::disableAuto,
+                    busy = ui.busy,
+                )
+            }
             Section(
                 "Email encrypted backup",
                 "Sends the encrypted .aresvault file to your dedicated backup address through your email app. " +
@@ -139,6 +157,14 @@ fun BackupScreen(onBack: () -> Unit, onImportAuthenticator: () -> Unit, vm: Back
                 null
             }
         }
+        Dialog.AUTO -> BackupPasswordDialog(
+            title = "Password for automatic backups",
+            confirm = true,
+            onDismiss = { dialog = null },
+            actionLabel = "Turn on",
+        ) { pw, confirm ->
+            vm.configureAuto(pw, confirm, auto?.autoBackupKeep ?: 5).also { if (it == null) dialog = null }
+        }
         Dialog.EMAIL -> BackupPasswordDialog(
             title = "Backup password",
             confirm = true,
@@ -186,7 +212,7 @@ fun BackupScreen(onBack: () -> Unit, onImportAuthenticator: () -> Unit, vm: Back
     }
 }
 
-private enum class Dialog { EXPORT, IMPORT, PLAINTEXT, EMAIL }
+private enum class Dialog { EXPORT, IMPORT, PLAINTEXT, EMAIL, AUTO }
 
 @Composable
 private fun Section(title: String, text: String, actions: @Composable () -> Unit) {
@@ -295,5 +321,41 @@ private fun EmailSettings(state: BackupViewModel.EmailState, onSave: (String) ->
             )
         }
         androidx.compose.material3.Switch(checked = state.reminder, onCheckedChange = onReminder, enabled = state.address.isNotBlank())
+    }
+}
+
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun AutoBackupStatus(
+    settings: com.ares.vault.data.db.SettingsEntity?,
+    onSetup: () -> Unit,
+    onNow: () -> Unit,
+    onKeep: (Int) -> Unit,
+    onOff: () -> Unit,
+    busy: Boolean,
+) {
+    val s = settings ?: return
+    if (!s.autoBackupEnabled || s.autoBackupFolder == null) {
+        Button(onClick = onSetup, enabled = !busy) { Text("Choose folder & turn on") }
+        return
+    }
+    val fmt = java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.MEDIUM, java.text.DateFormat.SHORT)
+    Text("Folder: ${com.ares.vault.backup.AutoBackupFiles.displayName(s.autoBackupFolder!!)}", style = MaterialTheme.typography.bodyMedium)
+    Text(
+        s.lastAutoBackupAt?.let { "Last automatic backup: ${fmt.format(java.util.Date(it))}" } ?: "No automatic backup yet",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    s.lastAutoBackupError?.let { Text("Last attempt failed: $it", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+    androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Keep newest", Modifier.align(androidx.compose.ui.Alignment.CenterVertically))
+        listOf(3, 5, 10).forEach { n ->
+            androidx.compose.material3.FilterChip(selected = s.autoBackupKeep == n, onClick = { onKeep(n) }, label = { Text("$n") })
+        }
+    }
+    androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedButton(onClick = onNow, enabled = !busy) { Text("Back up now") }
+        TextButton(onClick = onSetup, enabled = !busy) { Text("Change folder or password") }
+        TextButton(onClick = onOff, enabled = !busy) { Text("Turn off", color = MaterialTheme.colorScheme.error) }
     }
 }

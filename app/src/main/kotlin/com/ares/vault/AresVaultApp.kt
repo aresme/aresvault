@@ -10,6 +10,7 @@ import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import com.ares.vault.autofill.AutofillIndexUpdater
+import com.ares.vault.backup.AutoBackupManager
 import com.ares.vault.backup.BackupReminderWorker
 import com.ares.vault.backup.EmailBackup
 import com.ares.vault.prefs.AppPrefs
@@ -31,6 +32,7 @@ class AresVaultApp : Application() {
     @Inject lateinit var session: VaultSession
     @Inject lateinit var clipboard: SecureClipboard
     @Inject lateinit var autofillIndex: AutofillIndexUpdater
+    @Inject lateinit var autoBackup: AutoBackupManager
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -54,6 +56,7 @@ class AresVaultApp : Application() {
         )
 
         autofillIndex.start()
+        autoBackup.start()
         EmailBackup.cleanCache(this)
         if (AppPrefs(this).let { it.emailReminderEnabled && it.backupEmail.isNotBlank() }) BackupReminderWorker.schedule(this)
 

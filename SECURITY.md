@@ -185,6 +185,19 @@ master password ──Argon2id(salt, params)──► KEK (32 B, never stored)
   Browser passkeys follow the same code path with a browser-supplied origin, but they weren't
   exercised on device because that would mean changing the user's Chrome settings.
 
+## Automatic backups
+
+- At setup the backup password is stretched once with Argon2id (fresh salt). The **derived key**,
+  salt and params are stored in the encrypted settings row (DB v5), never in plain files or prefs.
+  Each automatic file is AES-256-GCM under that key with a fresh IV, and records the salt and
+  params, so restore needs only the backup password (same `.aresvault` format).
+- Backups are produced only while unlocked: a change to credentials or passkeys, debounced by
+  3 s, ignoring `lastUsedAt` and sign-counter churn.
+- Folder access is a persisted Storage Access Framework grant (no storage permission). Losing it
+  shows "Lost access to the folder — choose it again". Pruning only touches `AresVault-auto-*` files.
+- Gradle's build cache is **disabled** for this project: corrupted entries left behind by an
+  out-of-memory-killed build were silently reused twice and produced jars with missing classes.
+
 ## Email backups
 
 - Only the **encrypted** `.aresvault` file is ever emailed. Plain-text passwords are never put

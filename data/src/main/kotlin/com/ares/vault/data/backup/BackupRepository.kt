@@ -36,6 +36,13 @@ class BackupRepository @Inject constructor(
         codec.encrypt(payload(), backupPassword)
     }
 
+    /** Automatic backup with a stored key (no password prompt). */
+    suspend fun exportWithKey(key: com.ares.vault.core.backup.BackupKey): ByteArray = withContext(Dispatchers.Default) {
+        codec.encryptWithKey(payload(), key)
+    }
+
+    suspend fun deriveBackupKey(password: CharArray) = withContext(Dispatchers.Default) { codec.deriveKey(password) }
+
     /** Logins + passkeys a backup would contain (for the email body). */
     suspend fun itemCount(): Int = dao().count() + (session.databaseOrNull()?.passkeys()?.getAll()?.size ?: 0)
 

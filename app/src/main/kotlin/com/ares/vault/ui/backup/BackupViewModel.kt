@@ -5,7 +5,12 @@ import android.content.Intent
 import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
 import androidx.navigation.toRoute
+import com.ares.vault.backup.AutoBackupFiles
+import com.ares.vault.backup.AutoBackupManager
 import com.ares.vault.backup.BackupReminderWorker
+import com.ares.vault.data.session.SettingsRepository
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 import com.ares.vault.backup.EmailBackup
 import com.ares.vault.prefs.AppPrefs
 import com.ares.vault.ui.nav.BackupRoute
@@ -45,8 +50,42 @@ class BackupViewModel @Inject constructor(
     private val manager: VaultManager,
     private val autoLock: AutoLockController,
     private val prefs: AppPrefs,
+    private val autoBackup: AutoBackupManager,
+    settingsRepo: SettingsRepository,
     savedState: SavedStateHandle,
 ) : ViewModel() {
+    /** Automatic-backup status, from the encrypted settings row. */
+    val settings = settingsRepo.observe().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    private var pendingFolder: Uri? = null
+
+    /** Folder picked; next step is the backup password dialog. */
+    fun folderChosen(uri: Uri?): Boolean {
+        pendingFolder = uri
+        return uri != null
+    }
+
+    fun configureAuto(password: String, confirm: String, keep: Int): String? {
+        prepareBackupPassword(password, confirm)?.let { return it }
+        val folder = pendingFolder ?: return "Choose a folder first"
+        val pw = pendingPasswordCopy() ?: return "Enter a password"
+        replacePendingPublic()
+        run {
+            autoBackup.configure(folder, pw, keep)?.let { "Automatic backups set up, but the first one failed: $it" }
+                ?: "Automatic backups are on. A backup was saved to ${AutoBackupFiles.displayName(folder.toString())}"
+        }
+        return null
+    }
+
+    fun backUpNow() = run { autoBackup.runNow()?.let { "Backup failed: $it" } ?: "Backup saved" }
+
+    fun setKeep(keep: Int) = viewModelScope.launch { autoBackup.setKeep(keep) }
+
+    fun disableAuto() = run {
+        autoBackup.disable()
+        "Automatic backups are off. Existing backup files were kept."
+    }
+
     /** Opened from the weekly reminder: show the email step right away. */
     val emailNow: Boolean = savedState.toRoute<BackupRoute>().emailNow
 
@@ -241,6 +280,9 @@ class BackupViewModel @Inject constructor(
         if (r.updated > 0) add("${r.updated} updated")
         if (r.skipped > 0) add("${r.skipped} already present")
     }.joinToString(", ")
+
+    private fun pendingPasswordCopy(): CharArray? = pendingPassword?.copyOf()
+    private fun replacePendingPublic() = replacePending(null)
 
     private fun replacePending(pw: CharArray?) {
         pendingPassword?.let(SecureBytes::wipe)

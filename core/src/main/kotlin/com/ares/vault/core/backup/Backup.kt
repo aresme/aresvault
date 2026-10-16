@@ -52,6 +52,16 @@ data class BackupPayload(
     val passkeys: List<BackupPasskey> = emptyList(),
 )
 
+/** A derived backup key plus the salt/params needed to re-derive it from the password. */
+class BackupKey(val key: ByteArray, val salt: ByteArray, val params: Argon2Params) {
+    companion object {
+        internal fun derive(codec: BackupCodec, password: CharArray, params: Argon2Params): BackupKey {
+            val salt = codec.newSalt()
+            return BackupKey(codec.deriveRaw(password, salt, params), salt, params)
+        }
+    }
+}
+
 class InvalidBackupException(message: String, cause: Throwable? = null) : Exception(message, cause)
 
 /** On-disk `.aresvault` container. Everything except [sealed] is public metadata. */
@@ -74,16 +84,35 @@ class BackupCodec(private val kdf: Kdf, private val random: SecureRandom = Secur
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
     fun encrypt(payload: BackupPayload, password: CharArray, params: Argon2Params = Argon2Params.DEFAULT): ByteArray {
-        val salt = SecureBytes.random(SALT_BYTES, random)
-        val key = derive(password, salt, params)
-        val plain = json.encodeToString(BackupPayload.serializer(), payload).toByteArray()
+        val key = BackupKey.derive(this, password, params)
         try {
-            val sealed = AesGcm.seal(key, plain, aad(VERSION, params, salt), random)
-            return json.encodeToString(BackupFile.serializer(), BackupFile(FORMAT, VERSION, params, salt, sealed)).toByteArray()
+            return encryptWithKey(payload, key)
         } finally {
-            SecureBytes.wipe(key, plain)
+            SecureBytes.wipe(key.key)
         }
     }
+
+    /**
+     * Automatic backups: encrypt with a key derived earlier from the backup password (kept in
+     * the encrypted vault). The file records the same salt and params, so restoring only needs
+     * the password.
+     */
+    fun encryptWithKey(payload: BackupPayload, key: BackupKey): ByteArray {
+        val plain = json.encodeToString(BackupPayload.serializer(), payload).toByteArray()
+        try {
+            val sealed = AesGcm.seal(key.key, plain, aad(VERSION, key.params, key.salt), random)
+            return json.encodeToString(BackupFile.serializer(), BackupFile(FORMAT, VERSION, key.params, key.salt, sealed)).toByteArray()
+        } finally {
+            SecureBytes.wipe(plain)
+        }
+    }
+
+    /** Argon2id(password, fresh salt) → key for [encryptWithKey]. Caller wipes [BackupKey.key]. */
+    fun deriveKey(password: CharArray, params: Argon2Params = Argon2Params.DEFAULT): BackupKey =
+        BackupKey.derive(this, password, params)
+
+    internal fun deriveRaw(password: CharArray, salt: ByteArray, params: Argon2Params) = derive(password, salt, params)
+    internal fun newSalt() = SecureBytes.random(SALT_BYTES, random)
 
     /** @throws InvalidBackupException not a backup / unsupported version
      *  @throws com.ares.vault.core.crypto.AuthenticationFailedException wrong password or tampered */

@@ -68,6 +68,21 @@ data class SettingsEntity(
     /** Spec §1: picking an account asks for the fingerprint even when the vault is unlocked. */
     @ColumnInfo(defaultValue = "1")
     val requireAuthToFill: Boolean = true,
+
+    // Automatic backups (stored here, inside the encrypted DB, because the key must stay secret).
+    @ColumnInfo(defaultValue = "0")
+    val autoBackupEnabled: Boolean = false,
+    /** Storage Access Framework tree URI of the chosen folder. */
+    val autoBackupFolder: String? = null,
+    /** Base64 key = Argon2id(backup password, salt); lets backups run without retyping it. */
+    val autoBackupKey: String? = null,
+    val autoBackupSalt: String? = null,
+    /** JSON Argon2Params used for the key (written into each file so the password restores it). */
+    val autoBackupParams: String? = null,
+    @ColumnInfo(defaultValue = "5")
+    val autoBackupKeep: Int = 5,
+    val lastAutoBackupAt: Long? = null,
+    val lastAutoBackupError: String? = null,
 ) {
     companion object {
         const val SINGLETON_ID = 0

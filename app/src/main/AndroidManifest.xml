@@ -47,6 +47,21 @@
             android:theme="@style/Theme.AresVault.Translucent"
             android:windowSoftInputMode="adjustResize" />
 
+        <activity
+            android:name=".autofill.GeneratePasswordActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:taskAffinity=""
+            android:theme="@style/Theme.AresVault.Translucent" />
+
+        <activity
+            android:name=".autofill.SaveActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:taskAffinity=""
+            android:theme="@style/Theme.AresVault.Translucent"
+            android:windowSoftInputMode="adjustResize" />
+
         <service
             android:name=".autofill.AresAutofillService"
             android:exported="true"

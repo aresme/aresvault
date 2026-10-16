@@ -5,9 +5,17 @@
     slower) is only declared for browsers that don't. maxLongVersionCode is set high so it
     keeps working across updates; drop an entry once that browser gains native support.
 -->
+<!--
+    supportsInlineSuggestions is OFF on purpose. With it on, Android waits for the keyboard's
+    inline-suggestions request before asking AresVault to fill. Infinix XOS switches to its own
+    secure keyboard (com.transsion.sk) on password fields, and that keyboard never answers, so
+    the session hung and no suggestions appeared (verified on X6886 / Android 16). The dropdown
+    works with every keyboard. The inline code paths stay in place for devices where this is
+    re-enabled.
+-->
 <autofill-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:settingsActivity="com.ares.vault.MainActivity"
-    android:supportsInlineSuggestions="true">
+    android:supportsInlineSuggestions="false">
     <compatibility-package android:name="com.transsion.phoenix" android:maxLongVersionCode="10000000000" />
     <compatibility-package android:name="com.sec.android.app.sbrowser" android:maxLongVersionCode="10000000000" />
     <compatibility-package android:name="com.sec.android.app.sbrowser.beta" android:maxLongVersionCode="10000000000" />

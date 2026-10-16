@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Build
 import android.service.autofill.Dataset
 import android.service.autofill.FillResponse
+import android.service.autofill.SaveInfo
 import android.view.autofill.AutofillId
 import android.view.inputmethod.InlineSuggestionsRequest
 import com.ares.vault.R
@@ -87,7 +88,48 @@ class FillResponseBuilder @Inject constructor(
             inline.last { factory.inline(it, searchLabel, null, R.drawable.ic_autofill_search, pinned = true) },
             factory.authSender(AutofillAuthActivity.MODE_PICK),
         )
-        return FillResponse.Builder().apply { datasets.forEach(::addDataset) }.build()
+        return FillResponse.Builder().apply {
+            datasets.forEach(::addDataset)
+            saveInfo(ctx)?.let(::setSaveInfo)
+        }.build()
+    }
+
+    /** Sign-up form: "Generate strong password" fills the new + confirm password fields. */
+    fun signUp(ctx: FillContext): FillResponse? {
+        val targets = ctx.analysis.newPasswords + ctx.analysis.confirmPasswords
+        if (targets.isEmpty()) return null
+        val label = context.getString(R.string.autofill_generate)
+        val subtitle = context.getString(R.string.autofill_generate_subtitle)
+        val inline = InlineSlots(ctx.inlineRequest)
+        val dataset = factory.dataset(
+            targets.associateWith { null },
+            factory.menu(label, subtitle, R.drawable.ic_autofill_key),
+            inline.last { factory.inline(it, label, null, R.drawable.ic_autofill_key) },
+            factory.generateSender(),
+        )
+        return FillResponse.Builder().addDataset(dataset).apply { saveInfo(ctx)?.let(::setSaveInfo) }.build()
+    }
+
+    /**
+     * Spec §6.3: always ask the system to offer "Save to AresVault?" when the form is submitted
+     * (views gone). A username-only first step delays saving until the password page (API 29+).
+     */
+    private fun saveInfo(ctx: FillContext): SaveInfo? {
+        val a = ctx.analysis
+        val password = a.password ?: a.newPasswords.firstOrNull()
+        if (password == null) {
+            val username = a.username ?: return null
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null
+            return SaveInfo.Builder(SaveInfo.SAVE_DATA_TYPE_USERNAME, arrayOf(username))
+                .setFlags(SaveInfo.FLAG_DELAY_SAVE)
+                .build()
+        }
+        val type = SaveInfo.SAVE_DATA_TYPE_PASSWORD or (if (a.username != null) SaveInfo.SAVE_DATA_TYPE_USERNAME else 0)
+        val optional = listOfNotNull(a.username) + a.confirmPasswords + a.newPasswords.drop(1)
+        return SaveInfo.Builder(type, arrayOf(password)).apply {
+            if (optional.isNotEmpty()) setOptionalIds(optional.toTypedArray())
+            setFlags(SaveInfo.FLAG_SAVE_ON_ALL_VIEWS_INVISIBLE)
+        }.build()
     }
 
     /** Locked without an index: a single "Unlock AresVault" entry for the whole response. */
@@ -99,6 +141,7 @@ class FillResponseBuilder @Inject constructor(
             factory.authSender(AutofillAuthActivity.MODE_UNLOCK),
             factory.menu(label, null, R.drawable.ic_autofill_lock),
             inline.next { factory.inline(it, label, null, R.drawable.ic_autofill_lock) },
+            saveInfo(ctx),
         )
     }
 

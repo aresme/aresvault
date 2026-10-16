@@ -44,6 +44,9 @@ adb shell am start -n com.ares.vault/.MainActivity
 2. Chrome: ⋮ → Settings → **Autofill services → Autofill using another service**, then restart
    Chrome. Do the same in Brave and Edge. Firefox works natively.
 
+On sign-up forms, focus the password field and pick **🔑 Generate strong password**. After
+you submit a form, Android asks **"Save username and password to AresVault?"**.
+
 Debug test forms (debug builds only):
 
 ```bash
@@ -70,7 +73,7 @@ adb logcat AresVault:V BiometricPrompt:V AutofillManagerService:V AutofillSessio
 ```bash
 ./gradlew :core:test                            # JVM unit tests (crypto, header, calibration)
 ./gradlew :data:connectedDebugAndroidTest       # on-device: Argon2kt vs Bouncy Castle, SQLCipher, VaultManager
-./gradlew :app:connectedStagingAndroidTest      # end-to-end autofill (installs com.ares.vault.staging; phone unlocked)
+./gradlew :app:connectedStagingAndroidTest      # end-to-end autofill: fill, generate, save, update (installs com.ares.vault.staging; phone unlocked)
 ./gradlew test connectedAndroidTest             # everything
 ```
 

@@ -5,4 +5,6 @@
     <string name="autofill_search_vault">Search vault…</string>
     <string name="autofill_unlock">Unlock AresVault</string>
     <string name="autofill_locked_subtitle">%1$s · locked</string>
+    <string name="autofill_generate">🔑 Generate strong password</string>
+    <string name="autofill_generate_subtitle">AresVault · fills password and confirmation</string>
 </resources>

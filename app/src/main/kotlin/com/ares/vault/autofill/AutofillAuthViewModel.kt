@@ -8,26 +8,21 @@ import com.ares.vault.core.autofill.StoredIdentity
 import com.ares.vault.core.domain.Domains
 import com.ares.vault.data.AresLog
 import com.ares.vault.data.db.CredentialEntity
-import com.ares.vault.data.keystore.BiometricKeyStore
 import com.ares.vault.data.repo.CredentialRepository
 import com.ares.vault.data.repo.toDraft
 import com.ares.vault.data.session.SettingsRepository
-import com.ares.vault.data.session.UnlockResult
 import com.ares.vault.data.session.VaultManager
 import com.ares.vault.data.session.VaultSession
-import com.ares.vault.ui.components.formatCountdown
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import javax.crypto.Cipher
 import javax.inject.Inject
 
 /**
- * Drives [AutofillAuthActivity]: unlock (fingerprint / master password) or confirm presence,
- * then produce the dataset or response for the system.
+ * Drives [AutofillAuthActivity]: unlock (via [UnlockController]) or confirm presence, then
+ * produce the dataset or response for the system.
  */
 @HiltViewModel
 class AutofillAuthViewModel @Inject constructor(
@@ -42,24 +37,18 @@ class AutofillAuthViewModel @Inject constructor(
 
     sealed interface Step {
         data object Starting : Step
-        /** Show BiometricPrompt with this CryptoObject cipher to unlock. */
-        class BiometricUnlock(val cipher: Cipher) : Step
+        /** Unlocking or re-entering the master password; see [unlock]. */
+        data object Unlocking : Step
         /** Vault unlocked; confirm the user is present (fingerprint or screen lock). */
         data object Confirm : Step
-        data object Password : Step
         class Pick(val items: List<CredentialEntity>) : Step
         class Done(val result: Parcelable?) : Step
     }
 
-    data class UiState(
-        val step: Step = Step.Starting,
-        val password: String = "",
-        val error: String? = null,
-        val busy: Boolean = false,
-    )
+    private val _step = MutableStateFlow<Step>(Step.Starting)
+    val step: StateFlow<Step> = _step.asStateFlow()
 
-    private val _ui = MutableStateFlow(UiState())
-    val ui: StateFlow<UiState> = _ui.asStateFlow()
+    val unlock = UnlockController(manager, viewModelScope, onSuccess = { proceed() }, onCancel = { cancel() })
 
     private lateinit var ctx: FillContext
     private lateinit var mode: String
@@ -74,66 +63,23 @@ class AutofillAuthViewModel @Inject constructor(
         this.credentialId = credentialId
         viewModelScope.launch {
             when {
-                !session.isUnlocked -> beginUnlock()
+                !session.isUnlocked -> {
+                    _step.value = Step.Unlocking
+                    unlock.begin()
+                }
                 mode != AutofillAuthActivity.MODE_UNLOCK && (settings.get()?.requireAuthToFill ?: true) ->
-                    step(if (canConfirm) Step.Confirm else Step.Password)
+                    if (canConfirm) _step.value = Step.Confirm else verifyWithPassword()
                 else -> proceed()
             }
         }
     }
 
-    private fun beginUnlock() {
-        when (val r = manager.biometricUnlockCipher()) {
-            is BiometricKeyStore.CipherResult.Ready -> step(Step.BiometricUnlock(r.cipher))
-            BiometricKeyStore.CipherResult.Invalidated -> {
-                _ui.update { it.copy(error = "Fingerprints changed — enter your master password") }
-                step(Step.Password)
-            }
-            BiometricKeyStore.CipherResult.Missing -> step(Step.Password)
-        }
-    }
-
-    fun onBiometricUnlocked(cipher: Cipher) {
-        busy(true)
-        viewModelScope.launch {
-            if (manager.unlockWithBiometric(cipher) == UnlockResult.Success) {
-                proceed()
-            } else {
-                _ui.update { it.copy(error = "Fingerprint unlock failed") }
-                step(Step.Password)
-            }
-            busy(false)
-        }
-    }
-
     fun onConfirmed() = viewModelScope.launch { proceed() }
 
-    fun usePassword(message: String? = null) {
-        _ui.update { it.copy(error = message) }
-        step(Step.Password)
-    }
-
-    fun onPassword(value: String) = _ui.update { it.copy(password = value, error = null) }
-
-    fun submitPassword() {
-        val pw = _ui.value.password.toCharArray()
-        if (pw.isEmpty()) return
-        _ui.update { it.copy(password = "", busy = true) }
-        viewModelScope.launch {
-            // Unlocked already → this is the presence check; otherwise it unlocks.
-            val r = try {
-                if (session.isUnlocked) manager.verifyMasterPassword(pw) else manager.unlockWithPassword(pw)
-            } finally {
-                pw.fill('\u0000')
-            }
-            busy(false)
-            when (r) {
-                UnlockResult.Success -> proceed()
-                UnlockResult.WrongPassword -> _ui.update { it.copy(error = "Wrong master password") }
-                is UnlockResult.LockedOut -> _ui.update { it.copy(error = "Too many attempts. Try again in ${formatCountdown(r.remainingMillis)}") }
-                UnlockResult.NoVault -> finishWith(null)
-            }
-        }
+    /** Presence check failed or unavailable: fall back to re-entering the master password. */
+    fun verifyWithPassword(message: String? = null) {
+        _step.value = Step.Unlocking
+        unlock.beginVerify(message)
     }
 
     /** Authenticated: build what the system asked for. */
@@ -150,7 +96,7 @@ class AutofillAuthViewModel @Inject constructor(
                 finishWith(datasetFor(entity))
             }
             AutofillAuthActivity.MODE_UNLOCK -> finishWith(responses.login(ctx, justAuthenticated = true))
-            AutofillAuthActivity.MODE_PICK -> step(Step.Pick(repository.all().sortedBy { it.title.lowercase() }))
+            AutofillAuthActivity.MODE_PICK -> _step.value = Step.Pick(repository.all().sortedBy { it.title.lowercase() })
         }
     }
 
@@ -182,7 +128,9 @@ class AutofillAuthViewModel @Inject constructor(
         }
     }
 
-    fun cancel() = step(Step.Done(null))
+    fun cancel() {
+        _step.value = Step.Done(null)
+    }
 
     private suspend fun datasetFor(entity: CredentialEntity): Parcelable? {
         val values = buildMap {
@@ -194,9 +142,9 @@ class AutofillAuthViewModel @Inject constructor(
         return factory.authResult(values)
     }
 
-    private fun finishWith(result: Parcelable?) = step(Step.Done(result))
-    private fun step(s: Step) = _ui.update { it.copy(step = s) }
-    private fun busy(b: Boolean) = _ui.update { it.copy(busy = b) }
+    private fun finishWith(result: Parcelable?) {
+        _step.value = Step.Done(result)
+    }
 }
 
 fun CredentialEntity.storedIdentity() = StoredIdentity(appPackage, appCertSha256, webDomain, extraUrls)

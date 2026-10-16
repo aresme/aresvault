@@ -4,33 +4,22 @@ import android.app.assist.AssistStructure
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
-import android.view.View
-import android.view.WindowManager
 import android.view.autofill.AutofillManager
 import android.view.inputmethod.InlineSuggestionsRequest
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -41,13 +30,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.core.content.IntentCompat
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ares.vault.ui.BiometricAuthenticator
-import com.ares.vault.ui.components.PasswordField
 import com.ares.vault.ui.theme.AresVaultTheme
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -64,8 +51,7 @@ class AutofillAuthActivity : FragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
-        window.decorView.importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
+        secureAutofillWindow()
 
         val structure = IntentCompat.getParcelableExtra(intent, AutofillManager.EXTRA_ASSIST_STRUCTURE, AssistStructure::class.java)
         val inline = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -84,51 +70,38 @@ class AutofillAuthActivity : FragmentActivity() {
 
         setContent {
             AresVaultTheme {
-                val ui by vm.ui.collectAsStateWithLifecycle()
-                AuthContent(ui)
+                val step by vm.step.collectAsStateWithLifecycle()
+                val unlock by vm.unlock.state.collectAsStateWithLifecycle()
+                AuthContent(step, unlock)
             }
         }
     }
 
     @Composable
-    private fun AuthContent(ui: AutofillAuthViewModel.UiState) {
-        when (val step = ui.step) {
+    private fun AuthContent(step: AutofillAuthViewModel.Step, unlock: UnlockController.State) {
+        when (step) {
             AutofillAuthViewModel.Step.Starting -> Unit
-            is AutofillAuthViewModel.Step.BiometricUnlock -> LaunchedEffect(step) {
-                when (val r = BiometricAuthenticator.authenticate(this@AutofillAuthActivity, step.cipher, "Unlock AresVault", "Fill ${vm.target}")) {
-                    is BiometricAuthenticator.Result.Success -> vm.onBiometricUnlocked(r.cipher)
-                    is BiometricAuthenticator.Result.Error -> vm.usePassword(r.message)
-                    else -> vm.usePassword()
+            AutofillAuthViewModel.Step.Unlocking -> when (val u = unlock.step) {
+                is UnlockController.Step.Biometric -> BiometricUnlockEffect(vm.unlock, u, this, "Fill ${vm.target}")
+                UnlockController.Step.Password -> AutofillSheet(vm::cancel) {
+                    PasswordUnlockContent(unlock, vm.unlock, "to fill ${vm.target}")
                 }
+                UnlockController.Step.Idle -> Unit
             }
             AutofillAuthViewModel.Step.Confirm -> LaunchedEffect(step) {
                 when (val r = BiometricAuthenticator.confirm(this@AutofillAuthActivity, "Fill with AresVault", vm.target)) {
                     BiometricAuthenticator.Result.Confirmed -> vm.onConfirmed()
-                    is BiometricAuthenticator.Result.Error -> vm.usePassword(r.message)
+                    is BiometricAuthenticator.Result.Error -> vm.verifyWithPassword(r.message)
                     else -> vm.cancel()
                 }
             }
-            AutofillAuthViewModel.Step.Password -> Sheet { PasswordStep(ui) }
-            is AutofillAuthViewModel.Step.Pick -> Sheet { PickStep(step) }
+            is AutofillAuthViewModel.Step.Pick -> AutofillSheet(vm::cancel) { PickStep(step) }
             is AutofillAuthViewModel.Step.Done -> LaunchedEffect(step) { finishWith(step) }
         }
     }
 
     @Composable
-    private fun PasswordStep(ui: AutofillAuthViewModel.UiState) {
-        Text("Unlock AresVault", style = MaterialTheme.typography.titleLarge)
-        Text("to fill ${vm.target}", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        PasswordField(ui.password, vm::onPassword, "Master password", isError = ui.error != null, onImeAction = vm::submitPassword)
-        ui.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        if (ui.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            TextButton(onClick = vm::cancel) { Text("Cancel") }
-            Button(onClick = vm::submitPassword, enabled = !ui.busy && ui.password.isNotEmpty()) { Text("Unlock") }
-        }
-    }
-
-    @Composable
-    private fun androidx.compose.foundation.layout.ColumnScope.PickStep(step: AutofillAuthViewModel.Step.Pick) {
+    private fun ColumnScope.PickStep(step: AutofillAuthViewModel.Step.Pick) {
         var query by remember { mutableStateOf("") }
         var link by remember { mutableStateOf(true) }
         Text("Choose a login for ${vm.target}", style = MaterialTheme.typography.titleMedium)
@@ -153,26 +126,6 @@ class AutofillAuthActivity : FragmentActivity() {
             }
         }
         TextButton(onClick = vm::cancel, modifier = Modifier.align(Alignment.End)) { Text("Cancel") }
-    }
-
-    /** Bottom card over a dim scrim; tapping the scrim cancels. */
-    @Composable
-    private fun Sheet(content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
-        Box(
-            Modifier.fillMaxSize().background(Color(0x99000000)).clickable(onClick = vm::cancel),
-            contentAlignment = Alignment.BottomCenter,
-        ) {
-            Surface(
-                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-                modifier = Modifier.fillMaxWidth().clickable(enabled = false) {},
-            ) {
-                Column(
-                    Modifier.padding(20.dp).navigationBarsPadding().imePadding(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    content = content,
-                )
-            }
-        }
     }
 
     private fun finishWith(step: AutofillAuthViewModel.Step.Done) {

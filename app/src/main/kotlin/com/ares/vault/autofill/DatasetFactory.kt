@@ -11,6 +11,7 @@ import android.service.autofill.Field
 import android.service.autofill.FillResponse
 import android.service.autofill.InlinePresentation
 import android.service.autofill.Presentations
+import android.service.autofill.SaveInfo
 import android.view.autofill.AutofillId
 import android.view.autofill.AutofillValue
 import android.widget.RemoteViews
@@ -93,8 +94,9 @@ class DatasetFactory @Inject constructor(@ApplicationContext private val context
         }
 
     /** Whole-response authentication ("Unlock AresVault"). */
-    fun authResponse(ids: Array<AutofillId>, sender: IntentSender, menu: RemoteViews, inline: InlinePresentation?): FillResponse {
+    fun authResponse(ids: Array<AutofillId>, sender: IntentSender, menu: RemoteViews, inline: InlinePresentation?, saveInfo: SaveInfo?): FillResponse {
         val builder = FillResponse.Builder()
+        saveInfo?.let { builder.setSaveInfo(it) }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             builder.setAuthentication(ids, sender, presentations(menu, inline))
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && inline != null) {
@@ -108,10 +110,24 @@ class DatasetFactory @Inject constructor(@ApplicationContext private val context
     }
 
     /** IntentSender that opens the auth activity. Mutable: the system adds the AssistStructure. */
-    fun authSender(mode: String, credentialId: String? = null): IntentSender {
-        val intent = Intent(context, AutofillAuthActivity::class.java)
-            .putExtra(AutofillAuthActivity.EXTRA_MODE, mode)
-            .putExtra(AutofillAuthActivity.EXTRA_CREDENTIAL_ID, credentialId)
+    fun authSender(mode: String, credentialId: String? = null): IntentSender =
+        mutableSender(
+            Intent(context, AutofillAuthActivity::class.java)
+                .putExtra(AutofillAuthActivity.EXTRA_MODE, mode)
+                .putExtra(AutofillAuthActivity.EXTRA_CREDENTIAL_ID, credentialId),
+        )
+
+    fun generateSender(): IntentSender = mutableSender(Intent(context, GeneratePasswordActivity::class.java))
+
+    /** Started by the system after "Save"; carries only a token. */
+    fun saveSender(token: String): IntentSender = PendingIntent.getActivity(
+        context,
+        requestCodes.incrementAndGet(),
+        Intent(context, SaveActivity::class.java).putExtra(SaveActivity.EXTRA_TOKEN, token),
+        PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    ).intentSender
+
+    private fun mutableSender(intent: Intent): IntentSender {
         val flags = PendingIntent.FLAG_CANCEL_CURRENT or
             (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) PendingIntent.FLAG_MUTABLE else 0)
         return PendingIntent.getActivity(context, requestCodes.incrementAndGet(), intent, flags).intentSender

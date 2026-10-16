@@ -101,6 +101,34 @@ master password ──Argon2id(salt, params)──► KEK (32 B, never stored)
 - Instrumented tests run against a separate `com.ares.vault.staging` package and restore the
   user's autofill service afterwards.
 
+## Generate and save (Phase 5)
+
+- **Generate** on sign-up forms reads no stored secret, so it works while locked. The
+  generator options (not secret) are mirrored to plain prefs for this. The password goes
+  straight into the form's new and confirm password fields.
+- **Save**: every response carries `SaveInfo` (`FLAG_SAVE_ON_ALL_VIEWS_INVISIBLE`). A
+  username-only first page uses `FLAG_DELAY_SAVE` so a two-page login is saved as one entry.
+  - New login, vault unlocked → saved directly after the system's "Save to AresVault?".
+  - Same identity + username already saved → asks before updating. The old password moves
+    to history (last 5).
+  - Vault locked → `SaveActivity` unlocks first. The captured login waits in an in-memory
+    store (`PendingSaveStore`, 10 min TTL) and only a random token travels in the
+    PendingIntent. Plaintext is never written to disk.
+- New entries pin the requester's identity: app package + signing certificate, or the site
+  host from a verified browser.
+
+## Platform quirks found on Infinix XOS
+
+- **Inline (keyboard) suggestions are disabled.** XOS switches password fields to its own
+  secure keyboard (`com.transsion.sk`), which never answers Android's inline-suggestions
+  request. With inline support declared, the autofill session hangs and no suggestions
+  appear. The dropdown works with every keyboard.
+- **Compatibility mode** entries (Phoenix, Opera, Samsung Internet) are ignored unless the
+  package is in the system's compat allowlist (`AutofillManagerService: Ignoring not allowed
+  compat package`). Those browsers need native Autofill-Framework support to work.
+- XOS freezes background processes ~1.5 s after they lose their last visible window (see
+  auto-lock notes). Instrumented tests keep a window open.
+
 ## Permissions
 
 - `USE_BIOMETRIC` — fingerprint unlock.

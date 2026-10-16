@@ -55,6 +55,11 @@ fun BackupScreen(onBack: () -> Unit, onImportAuthenticator: () -> Unit, vm: Back
     val openCsv = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument(), vm::importCsv)
     val createCsv = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv"), vm::exportCsv)
     val today = LocalDate.now().toString()
+    val email by vm.email.collectAsStateWithLifecycle()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val askNotifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
+    LaunchedEffect(Unit) { vm.emailIntent.collect { context.startActivity(it) } }
+    LaunchedEffect(Unit) { if (vm.emailNow && email.address.isNotBlank()) dialog = Dialog.EMAIL }
 
     Scaffold(
         topBar = {
@@ -70,6 +75,21 @@ fun BackupScreen(onBack: () -> Unit, onImportAuthenticator: () -> Unit, vm: Back
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             if (ui.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+            Section(
+                "Email encrypted backup",
+                "Sends the encrypted .aresvault file to your dedicated backup address through your email app. " +
+                    "AresVault itself has no internet access, and the attachment can't be opened without the backup password.",
+            ) {
+                EmailSettings(
+                    email,
+                    onSave = vm::saveEmail,
+                    onReminder = { on ->
+                        if (on && android.os.Build.VERSION.SDK_INT >= 33) askNotifications.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                        vm.setReminder(on)
+                    },
+                )
+                Button(onClick = { dialog = Dialog.EMAIL }, enabled = !ui.busy && email.address.isNotBlank()) { Text("Email encrypted backup") }
+            }
             Section(
                 "Encrypted backup",
                 "Saves every login (with password history) to a .${BackupCodec.FILE_EXTENSION} file encrypted " +
@@ -119,6 +139,18 @@ fun BackupScreen(onBack: () -> Unit, onImportAuthenticator: () -> Unit, vm: Back
                 null
             }
         }
+        Dialog.EMAIL -> BackupPasswordDialog(
+            title = "Backup password",
+            confirm = true,
+            onDismiss = { dialog = null },
+            actionLabel = "Open email app",
+        ) { pw, confirm ->
+            vm.prepareBackupPassword(pw, confirm) ?: run {
+                dialog = null
+                vm.emailBackup()
+                null
+            }
+        }
         Dialog.IMPORT -> BackupPasswordDialog(
             title = "Backup password",
             confirm = false,
@@ -154,7 +186,7 @@ fun BackupScreen(onBack: () -> Unit, onImportAuthenticator: () -> Unit, vm: Back
     }
 }
 
-private enum class Dialog { EXPORT, IMPORT, PLAINTEXT }
+private enum class Dialog { EXPORT, IMPORT, PLAINTEXT, EMAIL }
 
 @Composable
 private fun Section(title: String, text: String, actions: @Composable () -> Unit) {
@@ -173,6 +205,7 @@ private fun BackupPasswordDialog(
     title: String,
     confirm: Boolean,
     onDismiss: () -> Unit,
+    actionLabel: String = "Choose file",
     onSubmit: (String, String) -> String?,
 ) {
     var pw by remember { mutableStateOf("") }
@@ -195,7 +228,7 @@ private fun BackupPasswordDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { error = onSubmit(pw, pw2) }, enabled = pw.isNotEmpty()) { Text("Choose file") }
+            TextButton(onClick = { error = onSubmit(pw, pw2) }, enabled = pw.isNotEmpty()) { Text(actionLabel) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
@@ -233,4 +266,34 @@ private fun PlaintextDialog(vm: BackupViewModel, onDismiss: () -> Unit, onVerifi
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
+}
+
+@Composable
+private fun EmailSettings(state: BackupViewModel.EmailState, onSave: (String) -> String?, onReminder: (Boolean) -> Unit) {
+    var address by remember(state.address) { mutableStateOf(state.address) }
+    var error by remember { mutableStateOf<String?>(null) }
+    androidx.compose.material3.OutlinedTextField(
+        value = address,
+        onValueChange = { address = it; error = null },
+        label = { Text("Backup email address") },
+        singleLine = true,
+        isError = error != null,
+        supportingText = error?.let { { Text(it) } },
+        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Email),
+        trailingIcon = {
+            if (address.trim() != state.address) TextButton(onClick = { error = onSave(address) }) { Text("Save") }
+        },
+        modifier = Modifier.fillMaxWidth(),
+    )
+    androidx.compose.foundation.layout.Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text("Weekly reminder")
+            Text(
+                if (state.lastSentAt == 0L) "Never sent" else "Last sent ${java.text.DateFormat.getDateInstance().format(java.util.Date(state.lastSentAt))}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        androidx.compose.material3.Switch(checked = state.reminder, onCheckedChange = onReminder, enabled = state.address.isNotBlank())
+    }
 }

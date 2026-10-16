@@ -1,5 +1,6 @@
 package com.ares.vault
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.view.WindowManager
@@ -8,11 +9,29 @@ import androidx.activity.enableEdgeToEdge
 import androidx.fragment.app.FragmentActivity
 import com.ares.vault.ui.AresApp
 import com.ares.vault.ui.theme.AresVaultTheme
+import com.ares.vault.backup.BackupReminderWorker
+import com.ares.vault.backup.PendingAction
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
 /** Single activity. FragmentActivity because BiometricPrompt requires it. */
 @AndroidEntryPoint
 class MainActivity : FragmentActivity() {
+    @Inject lateinit var pendingAction: PendingAction
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleIntent(intent)
+    }
+
+    /** The weekly reminder asks to open "Email encrypted backup" (after unlock). */
+    private fun handleIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra(BackupReminderWorker.EXTRA_EMAIL_BACKUP, false) == true) {
+            pendingAction.emailBackup.value = true
+            BackupReminderWorker.dismiss(this)
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // Spec §4.3: block screenshots/screen recording and blank the recents thumbnail.
@@ -24,6 +43,7 @@ class MainActivity : FragmentActivity() {
         // password manager such as Google's), so it can't read or offer to save our secrets.
         window.decorView.importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
         enableEdgeToEdge()
+        handleIntent(intent)
         setContent {
             AresVaultTheme {
                 AresApp()

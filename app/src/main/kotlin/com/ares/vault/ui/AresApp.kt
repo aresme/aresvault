@@ -81,6 +81,14 @@ private fun routeFor(screen: AppScreen): Any = when (screen) {
 private fun VaultNavHost() {
     val nav = rememberNavController()
     val enrollerVm: ReenrollViewModel = hiltViewModel()
+    val actions: PendingActionViewModel = hiltViewModel()
+    val emailBackup by actions.emailBackup.collectAsStateWithLifecycle()
+    LaunchedEffect(emailBackup) {
+        if (emailBackup) {
+            actions.consume()
+            nav.navigate(BackupRoute(emailNow = true))
+        }
+    }
     NavHost(nav, startDestination = VaultListRoute) {
         composable<VaultListRoute> {
             VaultListScreen(
@@ -111,7 +119,7 @@ private fun VaultNavHost() {
             GeneratorScreen(onBack = { nav.popBackStack() }, onSaveAsEntry = { nav.navigate(EditRoute()) })
         }
         composable<SettingsRoute> {
-            SettingsScreen(onBack = { nav.popBackStack() }, onBackup = { nav.navigate(BackupRoute) }, onPasskeys = { nav.navigate(PasskeysRoute) })
+            SettingsScreen(onBack = { nav.popBackStack() }, onBackup = { nav.navigate(BackupRoute()) }, onPasskeys = { nav.navigate(PasskeysRoute) })
         }
         composable<BackupRoute> {
             BackupScreen(onBack = { nav.popBackStack() }, onImportAuthenticator = { nav.navigate(ImportAuthenticatorRoute) })

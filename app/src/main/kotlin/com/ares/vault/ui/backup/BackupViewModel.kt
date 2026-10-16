@@ -1,7 +1,15 @@
 package com.ares.vault.ui.backup
 
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
+import androidx.lifecycle.SavedStateHandle
+import androidx.navigation.toRoute
+import com.ares.vault.backup.BackupReminderWorker
+import com.ares.vault.backup.EmailBackup
+import com.ares.vault.prefs.AppPrefs
+import com.ares.vault.ui.nav.BackupRoute
+import kotlinx.coroutines.flow.MutableSharedFlow
 import android.provider.DocumentsContract
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -36,7 +44,51 @@ class BackupViewModel @Inject constructor(
     private val backups: BackupRepository,
     private val manager: VaultManager,
     private val autoLock: AutoLockController,
+    private val prefs: AppPrefs,
+    savedState: SavedStateHandle,
 ) : ViewModel() {
+    /** Opened from the weekly reminder: show the email step right away. */
+    val emailNow: Boolean = savedState.toRoute<BackupRoute>().emailNow
+
+    data class EmailState(val address: String, val reminder: Boolean, val lastSentAt: Long)
+
+    val email = MutableStateFlow(EmailState(prefs.backupEmail, prefs.emailReminderEnabled, prefs.lastEmailBackupAt))
+
+    /** One-shot: the email intent to start. */
+    val emailIntent = MutableSharedFlow<Intent>(extraBufferCapacity = 1)
+
+    /** Returns an error, or null when saved. */
+    fun saveEmail(address: String): String? {
+        if (address.isNotBlank() && !EmailBackup.isValidAddress(address)) return "That doesn't look like an email address"
+        prefs.backupEmail = address
+        updateReminderSchedule()
+        email.update { it.copy(address = prefs.backupEmail) }
+        return null
+    }
+
+    fun setReminder(enabled: Boolean) {
+        prefs.emailReminderEnabled = enabled
+        updateReminderSchedule()
+        email.update { it.copy(reminder = enabled) }
+    }
+
+    private fun updateReminderSchedule() {
+        if (prefs.emailReminderEnabled && prefs.backupEmail.isNotBlank()) BackupReminderWorker.schedule(context) else BackupReminderWorker.cancel(context)
+    }
+
+    /** Uses the password stored by [prepareBackupPassword]; emits the email intent. */
+    fun emailBackup() = withPending(Uri.EMPTY) { _, pw ->
+        val address = prefs.backupEmail
+        val bytes = backups.exportEncrypted(pw)
+        val intent = EmailBackup.shareIntent(context, bytes, address, backups.itemCount())
+        autoLock.holdForExternalActivity()
+        prefs.lastEmailBackupAt = System.currentTimeMillis()
+        email.update { it.copy(lastSentAt = prefs.lastEmailBackupAt) }
+        BackupReminderWorker.dismiss(context)
+        emailIntent.tryEmit(intent)
+        "Email app opened — tap Send to deliver the encrypted backup to $address"
+    }
+
 
     data class UiState(
         val busy: Boolean = false,

@@ -248,6 +248,7 @@ private fun AppPickerDialog(apps: AppInfoProvider, onPick: (String) -> Unit, onD
         title = { Text("Link an app") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                com.ares.vault.ui.components.ExcludeWindowFromAutofill()
                 OutlinedTextField(query, { query = it }, placeholder = { Text("Search apps") }, singleLine = true)
                 val list = all
                 if (list == null) {
@@ -315,6 +316,7 @@ private fun SetupKeyDialog(onDismiss: () -> Unit, onSubmit: (String, Int, Int) -
         title = { Text("Enter setup key") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                com.ares.vault.ui.components.ExcludeWindowFromAutofill()
                 OutlinedTextField(key, { key = it; error = null }, label = { Text("Setup key (letters A–Z, 2–7)") }, singleLine = true)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf(6, 8).forEach { d -> FilterChip(selected = digits == d, onClick = { digits = d }, label = { Text("$d digits") }) }

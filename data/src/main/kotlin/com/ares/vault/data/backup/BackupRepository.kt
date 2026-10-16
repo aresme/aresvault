@@ -36,6 +36,9 @@ class BackupRepository @Inject constructor(
         codec.encrypt(payload(), backupPassword)
     }
 
+    /** Logins + passkeys a backup would contain (for the email body). */
+    suspend fun itemCount(): Int = dao().count() + (session.databaseOrNull()?.passkeys()?.getAll()?.size ?: 0)
+
     /** Plaintext Google-format CSV. Callers must re-verify the master password first. */
     suspend fun exportCsv(): String = withContext(Dispatchers.Default) { PasswordCsv.export(payload().entries) }
 

@@ -98,6 +98,21 @@ Using it:
 Keyboard-strip (inline) suggestions are disabled on purpose: XOS's secure password keyboard
 never answers Android's inline request, which made autofill hang. See SECURITY.md.
 
+## Email backups
+
+Settings → Backup & import → **Email encrypted backup**:
+
+1. Enter your dedicated **backup email address** and tap Save.
+2. Tap **Email encrypted backup** and enter a backup password (it can be your master
+   password). Your email app opens with the address, the subject and the encrypted
+   `.aresvault` attached. Tap Send.
+3. With **Weekly reminder** on, AresVault posts "Time to email your backup" once a week has
+   passed since the last one. Tapping it opens the email step after unlock.
+
+AresVault itself still has **no internet permission**: the email app sends the message, and
+the attachment can't be opened without the backup password. To restore on a new phone, save
+the attachment and use *Restore from backup*.
+
 ## 2FA codes (TOTP)
 
 - **Add to a login:** edit the login → *Two-factor (2FA) code* → **Scan QR code** (the code the

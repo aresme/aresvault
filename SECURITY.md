@@ -185,6 +185,20 @@ master password ──Argon2id(salt, params)──► KEK (32 B, never stored)
   Browser passkeys follow the same code path with a browser-supplied origin, but they weren't
   exercised on device because that would mean changing the user's Chrome settings.
 
+## Email backups
+
+- Only the **encrypted** `.aresvault` file is ever emailed. Plain-text passwords are never put
+  in an email. The user's email app sends it, so AresVault keeps no network access and stores no
+  email credentials.
+- The attachment is written to `cache/email-backups/` and shared read-only through a
+  `FileProvider` limited to that folder. It is deleted on the next share and on app start.
+- The backup address, reminder flag and last-sent time live in app-private prefs (not secret).
+  The reminder notification shows no vault contents, and acting on it still requires unlock.
+- Found on device while building this: Compose **dialogs are separate windows** and did not
+  inherit MainActivity's autofill exclusion, so an autofill service was offered the backup
+  password typed into a dialog. `PasswordField` and the 2FA-key/app-picker dialogs now exclude
+  their window (`ExcludeWindowFromAutofill`).
+
 ## Platform quirks found on Infinix XOS
 
 - **Inline (keyboard) suggestions are disabled.** XOS switches password fields to its own
@@ -196,6 +210,8 @@ master password ──Argon2id(salt, params)──► KEK (32 B, never stored)
   ("Service does not have the required capabilities" in logcat).
 - On XOS, Credential Manager's settings intent opens *Users & Accounts*. Providers are chosen
   on the *Preferred service* page (the autofill picker).
+- XOS replaces Android's share chooser (`com.transsion.resolver`) and ignores Intent
+  selectors ("No apps can perform this action"). Email apps are therefore targeted explicitly.
 - **Compatibility mode** entries (Phoenix, Opera, Samsung Internet) are ignored unless the
   package is in the system's compat allowlist (`AutofillManagerService: Ignoring not allowed
   compat package`). Those browsers need native Autofill-Framework support to work.

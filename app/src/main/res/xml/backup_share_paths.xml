@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Only the cache folder holding the encrypted attachment is shareable. -->
+<paths>
+    <cache-path name="email_backups" path="email-backups/" />
+</paths>

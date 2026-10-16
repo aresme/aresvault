@@ -22,7 +22,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import android.view.View
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,6 +45,20 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+/**
+ * Excludes the window this is composed in from every autofill service. Needed for Compose
+ * dialogs and bottom sheets: they are separate windows that don't inherit MainActivity's
+ * exclusion (found on device: a dialog's backup password was offered to "Save to AresVault?").
+ */
+@Composable
+fun ExcludeWindowFromAutofill() {
+    val view = LocalView.current
+    DisposableEffect(view) {
+        view.rootView.importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
+        onDispose {}
+    }
+}
+
 /** Password text field with show/hide toggle. Autofill/IME learning is disabled for it. */
 @Composable
 fun PasswordField(
@@ -56,6 +73,7 @@ fun PasswordField(
     trailingExtra: @Composable (() -> Unit)? = null,
 ) {
     var visible by remember { mutableStateOf(false) }
+    ExcludeWindowFromAutofill()
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,

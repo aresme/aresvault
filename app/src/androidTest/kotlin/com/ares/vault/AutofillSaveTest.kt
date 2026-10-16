@@ -26,7 +26,11 @@ class AutofillSaveTest : AutofillTestBase("login") {
     /** Accepts the system save prompt ("Save … to AresVault?"). */
     private fun acceptSystemSavePrompt() {
         assertThat(device.wait(Until.findObject(By.textContains("AresVault")), 8_000)).isNotNull()
-        device.findObject(By.text(Pattern.compile("(?i)save"))).click()
+        // The prompt animates in: wait for the button itself, not just the title.
+        val save = device.wait(Until.findObject(By.text(Pattern.compile("(?i)save")).clickable(true)), 8_000)
+            ?: device.wait(Until.findObject(By.text(Pattern.compile("(?i)save"))), 4_000)
+        assertThat(save).isNotNull()
+        save.click()
     }
 
     private fun entries() = runBlocking { hooks.credentials().all() }

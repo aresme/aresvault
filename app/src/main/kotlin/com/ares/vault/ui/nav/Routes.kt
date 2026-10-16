@@ -13,7 +13,8 @@ import kotlinx.serialization.Serializable
 @Serializable data class EditRoute(val id: String? = null)
 @Serializable data object GeneratorRoute
 @Serializable data object SettingsRoute
-@Serializable data object BackupRoute
+/** [emailNow]: opened from the weekly reminder — go straight to “Email encrypted backup”. */
+@Serializable data class BackupRoute(val emailNow: Boolean = false)
 @Serializable data object ScanTotpRoute
 @Serializable data object PasskeysRoute
 @Serializable data object ImportAuthenticatorRoute

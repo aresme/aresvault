@@ -62,6 +62,13 @@ class AutofillTestActivity : Activity() {
                 root.addView(Button(this).apply { this.text = "Sign in with passkey"; setOnClickListener { harness.signIn() } })
                 root.addView(status)
             }
+            "reminder" -> {
+                // Posts the weekly backup reminder now (instead of waiting a week).
+                username = EditText(this)
+                password = EditText(this)
+                com.ares.vault.backup.BackupReminderWorker.notify(this, com.ares.vault.prefs.AppPrefs(this).backupEmail)
+                finish()
+            }
             "otp" -> {
                 root.addView(TextView(this).apply { this.text = "Enter the 6-digit code"; textSize = 24f })
                 username = EditText(this)

@@ -10,6 +10,9 @@ import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import com.ares.vault.autofill.AutofillIndexUpdater
+import com.ares.vault.backup.BackupReminderWorker
+import com.ares.vault.backup.EmailBackup
+import com.ares.vault.prefs.AppPrefs
 import com.ares.vault.clipboard.SecureClipboard
 import com.ares.vault.data.session.AutoLockController
 import com.ares.vault.data.session.VaultSession
@@ -51,6 +54,8 @@ class AresVaultApp : Application() {
         )
 
         autofillIndex.start()
+        EmailBackup.cleanCache(this)
+        if (AppPrefs(this).let { it.emailReminderEnabled && it.backupEmail.isNotBlank() }) BackupReminderWorker.schedule(this)
 
         // Locking also clears any password we left on the clipboard.
         appScope.launch {

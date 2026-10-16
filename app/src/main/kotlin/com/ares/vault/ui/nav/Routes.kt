@@ -14,3 +14,5 @@ import kotlinx.serialization.Serializable
 @Serializable data object GeneratorRoute
 @Serializable data object SettingsRoute
 @Serializable data object BackupRoute
+@Serializable data object ScanTotpRoute
+@Serializable data object ImportAuthenticatorRoute

@@ -129,6 +129,7 @@ class AutofillAuthActivity : FragmentActivity() {
     }
 
     private fun finishWith(step: AutofillAuthViewModel.Step.Done) {
+        step.toast?.let { android.widget.Toast.makeText(this, it, android.widget.Toast.LENGTH_SHORT).show() }
         if (step.result == null) {
             setResult(RESULT_CANCELED)
         } else {
@@ -143,5 +144,6 @@ class AutofillAuthActivity : FragmentActivity() {
         const val MODE_FILL = "fill"
         const val MODE_UNLOCK = "unlock"
         const val MODE_PICK = "pick"
+        const val MODE_OTP = "otp"
     }
 }

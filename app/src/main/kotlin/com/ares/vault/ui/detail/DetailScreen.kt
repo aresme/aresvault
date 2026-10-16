@@ -97,7 +97,15 @@ fun DetailScreen(onBack: () -> Unit, onEdit: (String) -> Unit, vm: DetailViewMod
                         Field("Username", item.username) { vm.copyPlain("username", item.username) }
                         HorizontalDivider()
                     }
-                    SecretField("Password", item.password) { vm.copySecret("password", item.password) }
+                    if (item.password.isNotEmpty()) {
+                        SecretField("Password", item.password) { vm.copySecret("password", item.password) }
+                    }
+                }
+            }
+            val totp = remember(item.totpUri) { com.ares.vault.ui.totp.parseOrNull(item.totpUri) }
+            if (totp != null) {
+                Card(Modifier.fillMaxWidth()) {
+                    com.ares.vault.ui.totp.TotpCode(totp, onCopy = { vm.copySecret("2FA code", it) }, modifier = Modifier.padding(16.dp))
                 }
             }
             if (item.webDomain != null || item.extraUrls.isNotEmpty() || item.appPackage != null) {

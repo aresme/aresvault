@@ -4,6 +4,10 @@
 
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
 
+    <!-- Scanning 2FA QR codes only (asked at runtime when you tap "Scan QR code"). -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+
     <!-- Lets the XOS help card ask to exempt AresVault from battery optimisation (spec §6.5). -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 

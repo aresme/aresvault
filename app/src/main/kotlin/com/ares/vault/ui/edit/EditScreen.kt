@@ -39,6 +39,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -66,11 +67,14 @@ import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EditScreen(onBack: () -> Unit, onSaved: (String) -> Unit, vm: EditViewModel = hiltViewModel()) {
+fun EditScreen(onScanTotp: () -> Unit, onBack: () -> Unit, onSaved: (String) -> Unit, vm: EditViewModel = hiltViewModel()) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     val f = ui.form
     var showGenerator by remember { mutableStateOf(false) }
     var showAppPicker by remember { mutableStateOf(false) }
+    var showKeyDialog by remember { mutableStateOf(false) }
+    // Returning from the QR scanner: pick up the scanned code.
+    LaunchedEffect(Unit) { vm.consumePendingScan() }
 
     Scaffold(
         topBar = {
@@ -101,6 +105,7 @@ fun EditScreen(onBack: () -> Unit, onSaved: (String) -> Unit, vm: EditViewModel 
                 },
             )
             ui.score?.let { ScoreBar(it, scoreLabel(it)) }
+            TotpSection(f.totpUri, ui.totpError, onScan = onScanTotp, onKey = { showKeyDialog = true }, onRemove = vm::removeTotp)
             Field(
                 "Website (e.g. example.com)", f.website, KeyboardType.Uri,
                 error = ui.websiteError,
@@ -138,6 +143,11 @@ fun EditScreen(onBack: () -> Unit, onSaved: (String) -> Unit, vm: EditViewModel 
             onUse = { pw -> vm.edit { it.copy(password = pw) }; showGenerator = false },
             onDismiss = { showGenerator = false },
         )
+    }
+    if (showKeyDialog) {
+        SetupKeyDialog(onDismiss = { showKeyDialog = false }) { key, digits, period ->
+            vm.setTotpKey(key, digits, period).also { if (it == null) showKeyDialog = false }
+        }
     }
     if (showAppPicker) {
         AppPickerDialog(vm.apps, onPick = { vm.pickApp(it); showAppPicker = false }, onDismiss = { showAppPicker = false })
@@ -264,5 +274,56 @@ private fun AppPickerDialog(apps: AppInfoProvider, onPick: (String) -> Unit, onD
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+@Composable
+private fun TotpSection(uri: String?, error: String?, onScan: () -> Unit, onKey: () -> Unit, onRemove: () -> Unit) {
+    val spec = remember(uri) { com.ares.vault.ui.totp.parseOrNull(uri) }
+    androidx.compose.material3.Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (spec == null) {
+                Text("Two-factor (2FA) code", style = MaterialTheme.typography.titleSmall)
+                Text(
+                    "Optional. Turn on 2FA on the website, then scan its QR code. Keeping 2FA in the same vault as the " +
+                        "password is convenient but less protective than a separate authenticator.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = onScan) { Text("Scan QR code") }
+                    TextButton(onClick = onKey) { Text("Enter setup key") }
+                }
+            } else {
+                com.ares.vault.ui.totp.TotpCode(spec, onCopy = {})
+                TextButton(onClick = onRemove) { Text("Remove 2FA", color = MaterialTheme.colorScheme.error) }
+            }
+            error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SetupKeyDialog(onDismiss: () -> Unit, onSubmit: (String, Int, Int) -> String?) {
+    var key by remember { mutableStateOf("") }
+    var digits by remember { mutableStateOf(6) }
+    var period by remember { mutableStateOf(30) }
+    var error by remember { mutableStateOf<String?>(null) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Enter setup key") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(key, { key = it; error = null }, label = { Text("Setup key (letters A–Z, 2–7)") }, singleLine = true)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(6, 8).forEach { d -> FilterChip(selected = digits == d, onClick = { digits = d }, label = { Text("$d digits") }) }
+                    listOf(30, 60).forEach { p -> FilterChip(selected = period == p, onClick = { period = p }, label = { Text("${p}s") }) }
+                }
+                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            }
+        },
+        confirmButton = { TextButton(onClick = { error = onSubmit(key, digits, period) }, enabled = key.isNotBlank()) { Text("Add") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }

@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ares.vault.core.autofill.ClientIdentity
 import com.ares.vault.core.autofill.StoredIdentity
+import com.ares.vault.core.otp.TotpSpec
+import com.ares.vault.clipboard.SecureClipboard
 import com.ares.vault.core.domain.Domains
 import com.ares.vault.data.AresLog
 import com.ares.vault.data.db.CredentialEntity
@@ -33,6 +35,7 @@ class AutofillAuthViewModel @Inject constructor(
     private val responses: FillResponseBuilder,
     private val factory: DatasetFactory,
     private val finder: CandidateFinder,
+    private val clipboard: SecureClipboard,
 ) : ViewModel() {
 
     sealed interface Step {
@@ -42,7 +45,7 @@ class AutofillAuthViewModel @Inject constructor(
         /** Vault unlocked; confirm the user is present (fingerprint or screen lock). */
         data object Confirm : Step
         class Pick(val items: List<CredentialEntity>) : Step
-        class Done(val result: Parcelable?) : Step
+        class Done(val result: Parcelable?, val toast: String? = null) : Step
     }
 
     private val _step = MutableStateFlow<Step>(Step.Starting)
@@ -93,7 +96,18 @@ class AutofillAuthViewModel @Inject constructor(
                     finishWith(null)
                     return
                 }
-                finishWith(datasetFor(entity))
+                _step.value = Step.Done(datasetFor(entity), copyTotpIfAny(entity))
+            }
+            AutofillAuthActivity.MODE_OTP -> {
+                val entity = credentialId?.let { repository.get(it) }
+                val otpId = ctx.analysis.otp
+                val spec = entity?.totpUri?.let { runCatching { TotpSpec.parseUri(it) }.getOrNull() }
+                if (entity == null || otpId == null || spec == null || !finder.matches(entity.storedIdentity(), ctx.identity, entity.id)) {
+                    finishWith(null)
+                    return
+                }
+                // Computed now, after authentication, so the code is fresh when it lands in the field.
+                finishWith(factory.authResult(mapOf(otpId to spec.code(System.currentTimeMillis()))))
             }
             AutofillAuthActivity.MODE_UNLOCK -> finishWith(responses.login(ctx, justAuthenticated = true))
             AutofillAuthActivity.MODE_PICK -> _step.value = Step.Pick(repository.all().sortedBy { it.title.lowercase() })
@@ -124,12 +138,22 @@ class AutofillAuthViewModel @Inject constructor(
                 repository.update(entity.id, updated)
                 AresLog.i("Autofill", "Linked entry to ${ctx.targetLabel}")
             }
-            finishWith(datasetFor(entity))
+            _step.value = Step.Done(datasetFor(entity), copyTotpIfAny(entity))
         }
     }
 
     fun cancel() {
         _step.value = Step.Done(null)
+    }
+
+    /** Filling a login that has 2FA: copy its current code, ready for the next screen. */
+    private suspend fun copyTotpIfAny(entity: CredentialEntity): String? {
+        val spec = entity.totpUri?.let { runCatching { TotpSpec.parseUri(it) }.getOrNull() } ?: return null
+        val seconds = settings.get()?.clipboardClearSeconds ?: SecureClipboard.DEFAULT_CLEAR_SECONDS
+        val code = spec.code(System.currentTimeMillis()).toCharArray()
+        clipboard.copySecret("2FA code", code, seconds)
+        code.fill('\u0000')
+        return "2FA code copied — paste it on the next screen"
     }
 
     private suspend fun datasetFor(entity: CredentialEntity): Parcelable? {

@@ -1,6 +1,7 @@
 package com.ares.vault.core.autofill
 
-enum class FormType { LOGIN, SIGN_UP, NONE }
+/** OTP = a one-time-code (2FA) field and nothing else to fill. */
+enum class FormType { LOGIN, SIGN_UP, OTP, NONE }
 
 /** Result of analysing one screen/page. [T] is the platform field id (AutofillId on Android). */
 data class FormAnalysis<T>(
@@ -9,9 +10,10 @@ data class FormAnalysis<T>(
     val password: T? = null,
     val newPasswords: List<T> = emptyList(),
     val confirmPasswords: List<T> = emptyList(),
+    val otp: T? = null,
 ) {
     /** Every field AresVault might fill, in order. */
-    val allIds: List<T> get() = listOfNotNull(username, password) + newPasswords + confirmPasswords
+    val allIds: List<T> get() = listOfNotNull(username, password) + newPasswords + confirmPasswords + listOfNotNull(otp)
 }
 
 object FormAnalyzer {
@@ -29,7 +31,7 @@ object FormAnalyzer {
             .filter { it.third != FieldType.IGNORE }
         val passwords = typed.filter { it.third in PASSWORD_TYPES }
         val otpOnly = typed.isNotEmpty() && typed.all { it.third == FieldType.OTP }
-        if (otpOnly) return FormAnalysis(FormType.NONE)
+        if (otpOnly) return FormAnalysis(FormType.OTP, otp = typed.first().first)
 
         val usernameField = pickUsername(typed, passwords.firstOrNull()?.first)
 

@@ -52,6 +52,12 @@ class AutofillTestActivity : Activity() {
                 confirm = field("confirm", "Confirm password", text or InputType.TYPE_TEXT_VARIATION_PASSWORD, null)
                 root.addView(Button(this).apply { this.text = "Sign up"; setOnClickListener { finish() } })
             }
+            "otp" -> {
+                root.addView(TextView(this).apply { this.text = "Enter the 6-digit code"; textSize = 24f })
+                username = EditText(this)
+                password = field("otp", "Verification code", InputType.TYPE_CLASS_NUMBER, "smsOTPCode")
+                root.addView(Button(this).apply { this.text = "Verify"; setOnClickListener { finish() } })
+            }
             "web" -> {
                 username = EditText(this)
                 password = EditText(this)

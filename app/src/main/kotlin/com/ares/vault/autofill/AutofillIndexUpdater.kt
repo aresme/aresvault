@@ -46,7 +46,7 @@ class AutofillIndexUpdater @Inject constructor(
                     if (enabled) {
                         store.write(
                             items.map {
-                                IndexEntry(it.id, it.username, it.title, it.appPackage, it.appCertSha256, it.webDomain, it.extraUrls)
+                                IndexEntry(it.id, it.username, it.title, it.appPackage, it.appCertSha256, it.webDomain, it.extraUrls, it.totpUri != null)
                             },
                         )
                     } else {

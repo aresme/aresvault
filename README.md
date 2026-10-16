@@ -97,6 +97,20 @@ Using it:
 Keyboard-strip (inline) suggestions are disabled on purpose: XOS's secure password keyboard
 never answers Android's inline request, which made autofill hang. See SECURITY.md.
 
+## 2FA codes (TOTP)
+
+- **Add to a login:** edit the login → *Two-factor (2FA) code* → **Scan QR code** (the code the
+  site shows when you turn on 2FA), or **Enter setup key**. The detail screen shows the live
+  code with a countdown and a copy button.
+- **Autofill:** on "enter verification code" screens, AresVault offers **2FA code · <site>**.
+  The code is computed after you confirm, so it is always current. When you fill a password
+  for a login that has 2FA, the current code is also copied, ready to paste.
+- **Import from Google Authenticator:** Settings → Backup & import → *Import 2FA codes* →
+  scan Authenticator's *Transfer accounts → Export* QR codes. Codes attach to matching
+  logins (same username, title or site mentions the issuer). The rest become new entries in a
+  "2FA" folder.
+- Scanning uses CameraX + ZXing on the phone. Camera frames never leave the device.
+
 ## Backup and import
 
 **Settings → Backup & import**:

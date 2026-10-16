@@ -32,6 +32,8 @@ data class BackupEntry(
     val updatedAt: Long,
     val lastUsedAt: Long? = null,
     val history: List<BackupHistory> = emptyList(),
+    /** Added in Phase 8; older backups simply don't have it. */
+    val totpUri: String? = null,
 )
 
 @Serializable

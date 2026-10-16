@@ -30,6 +30,8 @@ data class CredentialEntity(
     val createdAt: Long,
     val updatedAt: Long,
     val lastUsedAt: Long? = null,
+    /** 2FA: canonical `otpauth://totp/...` URI incl. the secret (encrypted with the DB). */
+    val totpUri: String? = null,
 )
 
 @Entity(

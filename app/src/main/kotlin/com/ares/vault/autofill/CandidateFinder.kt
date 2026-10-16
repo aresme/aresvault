@@ -12,7 +12,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /** An account to offer. [entity] is present only when the vault is unlocked. */
-class Candidate(val id: String, val username: String, val title: String, val entity: CredentialEntity?)
+class Candidate(val id: String, val username: String, val title: String, val entity: CredentialEntity?, val hasTotp: Boolean = entity?.totpUri != null)
 
 @Singleton
 class CandidateFinder @Inject constructor(
@@ -32,7 +32,7 @@ class CandidateFinder @Inject constructor(
     fun locked(client: ClientIdentity): List<Candidate>? =
         index.read()
             ?.filter { matches(StoredIdentity(it.appPackage, it.appCertSha256, it.webDomain, it.extraUrls), client, it.id) }
-            ?.map { Candidate(it.id, it.username, it.title, null) }
+            ?.map { Candidate(it.id, it.username, it.title, null, it.hasTotp) }
 
     fun matches(stored: StoredIdentity, client: ClientIdentity, idForLog: String = "?"): Boolean =
         when (matcher.match(stored, client, identities::certMatches)) {

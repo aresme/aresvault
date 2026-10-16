@@ -33,6 +33,8 @@ data class IndexEntry(
     val appCertSha256: String? = null,
     val webDomain: String? = null,
     val extraUrls: List<String> = emptyList(),
+    /** Whether the entry has a 2FA code (the secret itself is never in the index). */
+    val hasTotp: Boolean = false,
 )
 
 /**

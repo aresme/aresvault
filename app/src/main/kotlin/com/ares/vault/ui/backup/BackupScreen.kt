@@ -44,7 +44,7 @@ import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BackupScreen(onBack: () -> Unit, vm: BackupViewModel = hiltViewModel()) {
+fun BackupScreen(onBack: () -> Unit, onImportAuthenticator: () -> Unit, vm: BackupViewModel = hiltViewModel()) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     var dialog by remember { mutableStateOf<Dialog?>(null) }
@@ -87,6 +87,13 @@ fun BackupScreen(onBack: () -> Unit, vm: BackupViewModel = hiltViewModel()) {
                     vm.beforePicker()
                     openCsv.launch(arrayOf("text/csv", "text/comma-separated-values", "text/plain", "application/csv", "*/*"))
                 }, enabled = !ui.busy) { Text("Import CSV") }
+            }
+            Section(
+                "Import 2FA codes from Google Authenticator",
+                "In Google Authenticator: ⋮ → Transfer accounts → Export accounts. Scan the QR code(s) with AresVault. " +
+                    "Codes are attached to matching logins, or saved as new 2FA entries.",
+            ) {
+                OutlinedButton(onClick = onImportAuthenticator, enabled = !ui.busy) { Text("Scan export QR codes") }
             }
             Section(
                 "Unencrypted export",

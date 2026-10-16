@@ -25,6 +25,7 @@ data class CredentialDraft(
     val extraUrls: List<String> = emptyList(),
     val folder: String? = null,
     val favorite: Boolean = false,
+    val totpUri: String? = null,
 )
 
 /**
@@ -106,6 +107,7 @@ class CredentialRepository @Inject constructor(
             extraUrls = extraUrls.map { it.trim() }.filter { it.isNotEmpty() },
             folder = folder?.trim()?.ifEmpty { null },
             favorite = favorite,
+            totpUri = totpUri?.ifBlank { null },
             createdAt = createdAt,
             updatedAt = updatedAt,
             lastUsedAt = lastUsedAt,
@@ -115,5 +117,5 @@ class CredentialRepository @Inject constructor(
 fun CredentialEntity.toDraft() = CredentialDraft(
     title = title, username = username, password = password, notes = notes,
     appPackage = appPackage, appCertSha256 = appCertSha256, webDomain = webDomain,
-    extraUrls = extraUrls, folder = folder, favorite = favorite,
+    extraUrls = extraUrls, folder = folder, favorite = favorite, totpUri = totpUri,
 )

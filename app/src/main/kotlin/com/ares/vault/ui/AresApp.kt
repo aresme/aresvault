@@ -22,6 +22,11 @@ import com.ares.vault.ui.edit.EditScreen
 import com.ares.vault.ui.generator.GeneratorScreen
 import com.ares.vault.ui.lock.LockScreen
 import com.ares.vault.ui.nav.BackupRoute
+import com.ares.vault.ui.nav.ImportAuthenticatorRoute
+import com.ares.vault.ui.nav.ScanTotpRoute
+import com.ares.vault.ui.scan.ImportAuthenticatorRoute
+import com.ares.vault.ui.scan.ScanResultViewModel
+import com.ares.vault.ui.scan.ScanTotpScreen
 import com.ares.vault.ui.nav.DetailRoute
 import com.ares.vault.ui.nav.EditRoute
 import com.ares.vault.ui.nav.GeneratorRoute
@@ -89,6 +94,7 @@ private fun VaultNavHost() {
         }
         composable<EditRoute> {
             EditScreen(
+                onScanTotp = { nav.navigate(ScanTotpRoute) },
                 onBack = { nav.popBackStack() },
                 onSaved = { id ->
                     nav.popBackStack()
@@ -104,6 +110,13 @@ private fun VaultNavHost() {
         composable<SettingsRoute> {
             SettingsScreen(onBack = { nav.popBackStack() }, onBackup = { nav.navigate(BackupRoute) })
         }
-        composable<BackupRoute> { BackupScreen(onBack = { nav.popBackStack() }) }
+        composable<BackupRoute> {
+            BackupScreen(onBack = { nav.popBackStack() }, onImportAuthenticator = { nav.navigate(ImportAuthenticatorRoute) })
+        }
+        composable<ScanTotpRoute> {
+            val scans: ScanResultViewModel = hiltViewModel()
+            ScanTotpScreen(onBack = { nav.popBackStack() }, onResult = { scans.deliver(it); nav.popBackStack() })
+        }
+        composable<ImportAuthenticatorRoute> { ImportAuthenticatorRoute(onBack = { nav.popBackStack() }) }
     }
 }

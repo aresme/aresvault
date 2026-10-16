@@ -82,8 +82,10 @@ class FormAnalyzerTest {
     }
 
     @Test fun otpAndSearchAreSkipped() {
-        assertThat(analyze(native(NUMBER, id = "otp_code")).type).isEqualTo(FormType.NONE)
-        assertThat(analyze(input("type" to "text", "autocomplete" to "one-time-code")).type).isEqualTo(FormType.NONE)
+        // A lone one-time-code field is its own form type (filled with a 2FA code), never a login.
+        assertThat(analyze(native(NUMBER, id = "otp_code")).type).isEqualTo(FormType.OTP)
+        assertThat(analyze(native(NUMBER, id = "otp_code")).otp).isEqualTo(0)
+        assertThat(analyze(input("type" to "text", "autocomplete" to "one-time-code")).type).isEqualTo(FormType.OTP)
         assertThat(analyze(input("type" to "search", "name" to "q")).type).isEqualTo(FormType.NONE)
         // An OTP field next to a password is not taken as the username.
         val a = analyze(native(NUMBER, id = "sms_code"), native(TEXT_PASSWORD))

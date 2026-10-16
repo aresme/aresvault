@@ -145,6 +145,19 @@ master password ──Argon2id(salt, params)──► KEK (32 B, never stored)
   requested. Auto-lock is held for up to 5 minutes while the system file picker is open
   (screen-off still locks).
 
+## 2FA codes (Phase 8)
+
+- TOTP secrets are stored as `otpauth://` URIs in the encrypted database (DB v3), backed up in
+  `.aresvault` files, and never put in the locked-state index (it only records *whether* an
+  entry has 2FA).
+- Codes use RFC 6238 over the platform's `HmacSHA1/256/512` (tested against the RFC 6238
+  and RFC 4226 vectors). Counter-based HOTP is not supported.
+- **Trade-off:** keeping the password and its 2FA secret in one vault means one compromise
+  defeats both factors. It is opt-in per entry, and the edit screen says so.
+- One-time-code autofill datasets carry no value. The code is generated inside the auth
+  activity after unlock or confirmation, and only for a login matching the requester's identity.
+- `CAMERA` permission is requested only when scanning. QR decoding is ZXing on-device.
+
 ## Platform quirks found on Infinix XOS
 
 - **Inline (keyboard) suggestions are disabled.** XOS switches password fields to its own
@@ -154,6 +167,8 @@ master password ──Argon2id(salt, params)──► KEK (32 B, never stored)
 - **Compatibility mode** entries (Phoenix, Opera, Samsung Internet) are ignored unless the
   package is in the system's compat allowlist (`AutofillManagerService: Ignoring not allowed
   compat package`). Those browsers need native Autofill-Framework support to work.
+- A Gradle build killed by the out-of-memory killer left **corrupt build-cache entries**
+  (jars with missing classes) that were silently reused. Fix: `rm -rf ~/.gradle/caches/build-cache-1`.
 - XOS freezes background processes ~1.5 s after they lose their last visible window (see
   auto-lock notes). Instrumented tests keep a window open.
 

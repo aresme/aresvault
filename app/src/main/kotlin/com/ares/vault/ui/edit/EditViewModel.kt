@@ -15,6 +15,8 @@ import com.ares.vault.data.repo.CredentialRepository
 import com.ares.vault.data.repo.toDraft
 import com.ares.vault.data.settings.GeneratorSettingsRepository
 import com.ares.vault.ui.PendingPassword
+import com.ares.vault.ui.PendingScan
+import com.ares.vault.core.otp.TotpSpec
 import com.ares.vault.ui.nav.EditRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -34,6 +36,7 @@ class EditViewModel @Inject constructor(
     private val repository: CredentialRepository,
     private val generatorSettings: GeneratorSettingsRepository,
     private val pending: PendingPassword,
+    private val scans: PendingScan,
     val apps: AppInfoProvider,
 ) : ViewModel() {
     private val id: String? = savedState.toRoute<EditRoute>().id
@@ -49,6 +52,7 @@ class EditViewModel @Inject constructor(
         val folder: String = "",
         val notes: String = "",
         val favorite: Boolean = false,
+        val totpUri: String? = null,
     )
 
     data class UiState(
@@ -59,6 +63,7 @@ class EditViewModel @Inject constructor(
         val error: String? = null,
         val saving: Boolean = false,
         val generator: GeneratorSettings = GeneratorSettings(),
+        val totpError: String? = null,
     )
 
     private val _ui = MutableStateFlow(UiState(isNew = id == null))
@@ -78,7 +83,7 @@ class EditViewModel @Inject constructor(
                                 title = d.title, username = d.username, password = d.password,
                                 website = d.webDomain.orEmpty(), appPackage = d.appPackage,
                                 appCertSha256 = d.appCertSha256, extraUrls = d.extraUrls.joinToString("\n"),
-                                folder = d.folder.orEmpty(), notes = d.notes, favorite = d.favorite,
+                                folder = d.folder.orEmpty(), notes = d.notes, favorite = d.favorite, totpUri = d.totpUri,
                             ),
                         )
                     }
@@ -98,6 +103,39 @@ class EditViewModel @Inject constructor(
         _ui.update { it.copy(form = transform(it.form), error = null, websiteError = null) }
         if (_ui.value.form.password != before) rescore()
     }
+
+    /** A QR code was scanned on the scan screen (handed over in memory). */
+    fun consumePendingScan() {
+        scans.take()?.let { uri -> setTotp(uri) }
+    }
+
+    private fun setTotp(uri: String) {
+        val spec = runCatching { TotpSpec.parseUri(uri) }.getOrNull()
+        if (spec == null) {
+            _ui.update { it.copy(totpError = "That QR code isn't a 2FA code") }
+            return
+        }
+        edit {
+            it.copy(
+                totpUri = spec.toUri(),
+                title = it.title.ifBlank { spec.issuer },
+                username = it.username.ifBlank { spec.account },
+            )
+        }
+        _ui.update { it.copy(totpError = null) }
+    }
+
+    /** Manual setup key ("Can't scan? Enter this key"). Returns an error or null. */
+    fun setTotpKey(key: String, digits: Int, period: Int): String? = try {
+        val f = _ui.value.form
+        val spec = TotpSpec.fromKey(key, issuer = f.title.trim(), account = f.username.trim(), digits = digits, period = period)
+        edit { it.copy(totpUri = spec.toUri()) }
+        null
+    } catch (e: IllegalArgumentException) {
+        e.message ?: "Invalid key"
+    }
+
+    fun removeTotp() = edit { it.copy(totpUri = null) }
 
     fun generate(preset: Preset): String {
         val chars = generator.generate(_ui.value.generator.configFor(preset))
@@ -121,7 +159,7 @@ class EditViewModel @Inject constructor(
 
     fun save(onSaved: (String) -> Unit) {
         val f = _ui.value.form
-        if (f.password.isEmpty()) {
+        if (f.password.isEmpty() && f.totpUri == null) {
             _ui.update { it.copy(error = "Password can't be empty") }
             return
         }
@@ -138,7 +176,7 @@ class EditViewModel @Inject constructor(
         val draft = CredentialDraft(
             title = title, username = f.username, password = f.password, notes = f.notes,
             appPackage = f.appPackage, appCertSha256 = f.appCertSha256, webDomain = domain,
-            extraUrls = extra, folder = f.folder, favorite = f.favorite,
+            extraUrls = extra, folder = f.folder, favorite = f.favorite, totpUri = f.totpUri,
         )
         _ui.update { it.copy(saving = true) }
         viewModelScope.launch {

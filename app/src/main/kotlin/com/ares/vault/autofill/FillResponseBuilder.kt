@@ -94,6 +94,28 @@ class FillResponseBuilder @Inject constructor(
         }.build()
     }
 
+    /** One-time-code field: offer the 2FA code of matching logins (computed fresh after auth). */
+    suspend fun otp(ctx: FillContext): FillResponse? {
+        val otpId = ctx.analysis.otp ?: return null
+        val candidates = (if (session.isUnlocked) finder.unlocked(ctx.identity) else finder.locked(ctx.identity).orEmpty())
+            .filter { it.hasTotp }
+        if (candidates.isEmpty()) return null
+        val inline = InlineSlots(ctx.inlineRequest)
+        val response = FillResponse.Builder()
+        for (c in candidates.take(MAX_ACCOUNTS)) {
+            val label = context.getString(R.string.autofill_otp, c.title)
+            response.addDataset(
+                factory.dataset(
+                    mapOf(otpId to null),
+                    factory.menu(label, c.username.ifEmpty { null }, R.drawable.ic_autofill_lock),
+                    inline.next { factory.inline(it, label, c.username, R.drawable.ic_autofill_lock) },
+                    factory.authSender(AutofillAuthActivity.MODE_OTP, c.id),
+                ),
+            )
+        }
+        return response.build()
+    }
+
     /** Sign-up form: "Generate strong password" fills the new + confirm password fields. */
     fun signUp(ctx: FillContext): FillResponse? {
         val targets = ctx.analysis.newPasswords + ctx.analysis.confirmPasswords

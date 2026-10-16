@@ -97,7 +97,7 @@ class BackupRepository @Inject constructor(
                 id = c.id, title = c.title, username = c.username, password = c.password, notes = c.notes,
                 appPackage = c.appPackage, appCertSha256 = c.appCertSha256, webDomain = c.webDomain,
                 extraUrls = c.extraUrls, folder = c.folder, favorite = c.favorite, createdAt = c.createdAt,
-                updatedAt = c.updatedAt, lastUsedAt = c.lastUsedAt,
+                updatedAt = c.updatedAt, lastUsedAt = c.lastUsedAt, totpUri = c.totpUri,
                 history = dao.getHistory(c.id).map { BackupHistory(it.password, it.replacedAt) },
             )
         }
@@ -107,6 +107,6 @@ class BackupRepository @Inject constructor(
     private fun BackupEntry.toEntity() = CredentialEntity(
         id = id, title = title, username = username, password = password, notes = notes, appPackage = appPackage,
         appCertSha256 = appCertSha256, webDomain = webDomain, extraUrls = extraUrls, folder = folder,
-        favorite = favorite, createdAt = createdAt, updatedAt = updatedAt, lastUsedAt = lastUsedAt,
+        favorite = favorite, createdAt = createdAt, updatedAt = updatedAt, lastUsedAt = lastUsedAt, totpUri = totpUri,
     )
 }

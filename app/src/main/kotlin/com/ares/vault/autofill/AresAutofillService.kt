@@ -60,6 +60,7 @@ class AresAutofillService : AutofillService() {
                     when (ctx.analysis.type) {
                         FormType.LOGIN -> responses.login(ctx)
                         FormType.SIGN_UP -> responses.signUp(ctx)
+                        FormType.OTP -> responses.otp(ctx)
                         FormType.NONE -> null
                     }
                 }

@@ -7,4 +7,5 @@
     <string name="autofill_locked_subtitle">%1$s · locked</string>
     <string name="autofill_generate">🔑 Generate strong password</string>
     <string name="autofill_generate_subtitle">AresVault · fills password and confirmation</string>
+    <string name="autofill_otp">2FA code · %1$s</string>
 </resources>

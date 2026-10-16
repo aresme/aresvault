@@ -114,6 +114,11 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.biometric)
     implementation(libs.androidx.autofill)
+    // QR scanning for 2FA setup — fully on-device (CameraX + ZXing; no ML model download).
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.view)
+    implementation(libs.zxing.core)
     implementation(libs.androidx.work.runtime)
 
     implementation(platform(libs.androidx.compose.bom))

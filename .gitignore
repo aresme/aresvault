@@ -1,14 +1,106 @@
+# ================================
+# AresVault Android .gitignore
+# ================================
+
+# ────────────────────────────────
+# Gradle Build System
+# ────────────────────────────────
 .gradle/
 build/
-/local.properties
-.idea/
-*.iml
-.DS_Store
-.kotlin/
-captures/
+.gradle/caches/
+.gradle/wrapper/
+!gradle/wrapper/gradle-wrapper.properties
+
+# ────────────────────────────────
+# Android SDK & Local Config
+# ────────────────────────────────
+# CRITICAL: local.properties contains sdk.dir and MUST NOT be committed
+local.properties
+
+# ────────────────────────────────
+# Signing Keys & Keystores
+# ────────────────────────────────
+# Production keys live in ~/.aresvault/ and must NEVER be committed
 *.keystore
 *.jks
-*.aresvault
-*.csv
-bin/
+
+# EXCEPTION: Test-only impostor keystore used for anti-phishing tests (spec §8)
+# This test key is safe to commit and required for CI/testing
+!impostor-debug.keystore
+
+# ────────────────────────────────
+# IDE Files
+# ────────────────────────────────
+# IntelliJ IDEA / Android Studio
+.idea/
+*.iml
+
+# VS Code
 .vscode/
+
+# Vim / Emacs
+*.swp
+*.swo
+*~
+.*.sw[a-z]
+
+# ────────────────────────────────
+# Operating System
+# ────────────────────────────────
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+Desktop.ini
+
+# ────────────────────────────────
+# Kotlin / Java Build
+# ────────────────────────────────
+.kotlin/
+*.class
+*.log
+*.jar
+*.war
+*.ear
+
+# ────────────────────────────────
+# AresVault-Specific Artifacts
+# ────────────────────────────────
+# Vault backup files (contain encrypted credentials)
+*.aresvault
+
+# CSV exports (plaintext credential exports)
+*.csv
+
+# Test captures and screenshots
+captures/
+
+# Compiled test resources
+bin/
+
+# ────────────────────────────────
+# Temporary & Backup Files
+# ────────────────────────────────
+*.bak
+*.tmp
+*.temp
+*~
+
+# ────────────────────────────────
+# CI / DevOps
+# ────────────────────────────────
+# GitHub Actions local runner cache
+.act/
+
+# ────────────────────────────────
+# APK Outputs
+# ────────────────────────────────
+# Uncommit if you want to track release APKs
+*.apk
+*.aab
+output.json
